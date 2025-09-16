@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Wallet, Menu, X } from "lucide-react";
 
 const Navbar = () => {
@@ -72,8 +73,9 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Wallet Connection */}
+          {/* Theme Toggle & Wallet Connection */}
           <div className="hidden md:flex items-center space-x-4">
+            <ThemeToggle />
             {isWalletConnected ? (
               <div className="flex items-center space-x-2">
                 <div className="text-sm">
@@ -130,7 +132,8 @@ const Navbar = () => {
                 </Link>
               ))}
               
-              <div className="pt-4">
+              <div className="pt-4 space-y-4">
+                <ThemeToggle />
                 {isWalletConnected ? (
                   <div className="space-y-2">
                     <div className="text-sm">
