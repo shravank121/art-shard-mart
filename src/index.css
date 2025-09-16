@@ -2,41 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* NFT Marketplace Design System - Dark Web3 Theme */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core Colors - Dark Theme */
+    --background: 222 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Card System */
+    --card: 224 71% 7%;
+    --card-foreground: 210 40% 98%;
+    --card-border: 240 20% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 224 71% 7%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
+    /* Brand Colors - Purple/Cyan Neon */
+    --primary: 271 91% 65%;
     --primary-foreground: 210 40% 98%;
+    --primary-glow: 271 91% 75%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 190 81% 67%;
+    --secondary-foreground: 222 84% 4.9%;
+    --secondary-glow: 190 81% 77%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Neutral Grays */
+    --muted: 240 20% 15%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 271 91% 65%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 84.2% 60.2%;
+    /* Status Colors */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
 
-    --radius: 0.5rem;
+    --warning: 47 96% 53%;
+    --warning-foreground: 222 84% 4.9%;
+
+    /* Interactive Elements */
+    --border: 240 20% 15%;
+    --input: 240 20% 15%;
+    --ring: 271 91% 65%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(271, 91%, 65%), hsl(190, 81%, 67%));
+    --gradient-secondary: linear-gradient(135deg, hsl(240, 20%, 15%), hsl(224, 71%, 7%));
+    --gradient-hero: linear-gradient(135deg, hsl(271, 91%, 25%), hsl(190, 81%, 25%));
+
+    /* Effects */
+    --shadow-glow: 0 0 30px hsl(271, 91%, 65%, 0.3);
+    --shadow-card: 0 10px 30px -10px hsl(222, 84%, 4.9%, 0.3);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -101,5 +124,63 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+@layer components {
+  /* NFT Card Animations */
+  .nft-card {
+    transition: var(--transition-smooth);
+    @apply transform-gpu;
+  }
+
+  .nft-card:hover {
+    @apply scale-105;
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Gradient Backgrounds */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Web3 Button Styles */
+  .btn-neon {
+    @apply relative overflow-hidden;
+    background: var(--gradient-primary);
+    transition: var(--transition-smooth);
+  }
+
+  .btn-neon::before {
+    content: '';
+    @apply absolute inset-0 opacity-0;
+    background: linear-gradient(135deg, hsl(271, 91%, 75%), hsl(190, 81%, 77%));
+    transition: var(--transition-smooth);
+  }
+
+  .btn-neon:hover::before {
+    @apply opacity-100;
+  }
+
+  .btn-neon > * {
+    @apply relative z-10;
   }
 }
