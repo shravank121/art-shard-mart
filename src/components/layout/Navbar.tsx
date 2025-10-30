@@ -1,15 +1,19 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Wallet, Menu, X } from "lucide-react";
+import { Wallet, Menu, X, LogOut } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const [ethBalance, setEthBalance] = useState("0.0");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const connectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
@@ -34,6 +38,23 @@ const Navbar = () => {
     setWalletAddress("");
     setEthBalance("0.0");
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("userEmail");
+    setIsLoggedIn(false);
+    toast({
+      title: "Logged Out",
+      description: "You have been logged out successfully.",
+    });
+    navigate("/");
+  };
+
+  useEffect(() => {
+    // Check if user is logged in
+    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
+    setIsLoggedIn(loggedIn);
+  }, []);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -78,16 +99,30 @@ const Navbar = () => {
             <ThemeToggle />
             
             {/* Auth Buttons */}
-            <Link to="/login">
-              <Button variant="ghost" size="sm">
-                Login
+            {!isLoggedIn ? (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link to="/signup">
+                  <Button size="sm">
+                    Sign Up
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="border-card-border"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
               </Button>
-            </Link>
-            <Link to="/signup">
-              <Button size="sm">
-                Sign Up
-              </Button>
-            </Link>
+            )}
             
             {isWalletConnected ? (
               <div className="flex items-center space-x-2">
@@ -149,18 +184,33 @@ const Navbar = () => {
                 <ThemeToggle />
                 
                 {/* Auth Buttons */}
-                <div className="flex gap-2">
-                  <Link to="/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" size="sm" className="w-full">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link to="/signup" className="flex-1" onClick={() => setIsMenuOpen(false)}>
-                    <Button size="sm" className="w-full">
-                      Sign Up
-                    </Button>
-                  </Link>
-                </div>
+                {!isLoggedIn ? (
+                  <div className="flex gap-2">
+                    <Link to="/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                      <Button variant="ghost" size="sm" className="w-full">
+                        Login
+                      </Button>
+                    </Link>
+                    <Link to="/signup" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                      <Button size="sm" className="w-full">
+                        Sign Up
+                      </Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleLogout();
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full border-card-border"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
+                )}
                 
                 {isWalletConnected ? (
                   <div className="space-y-2">

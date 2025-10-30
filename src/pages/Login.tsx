@@ -1,9 +1,41 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Set logged in state in localStorage
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("userEmail", email);
+
+    toast({
+      title: "Login Successful",
+      description: "Welcome back!",
+    });
+
+    // Redirect to homepage
+    navigate("/");
+  };
+
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md animate-fadeInUp">
@@ -19,7 +51,7 @@ const Login = () => {
           </div>
 
           {/* Form */}
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -27,6 +59,8 @@ const Login = () => {
                 type="email"
                 placeholder="you@example.com"
                 className="transition-all duration-300 focus:scale-[1.02]"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -38,6 +72,8 @@ const Login = () => {
                 type="password"
                 placeholder="••••••••"
                 className="transition-all duration-300 focus:scale-[1.02]"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
