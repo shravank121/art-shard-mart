@@ -76,6 +76,19 @@ const Navbar = () => {
           {/* Theme Toggle & Wallet Connection */}
           <div className="hidden md:flex items-center space-x-4">
             <ThemeToggle />
+            
+            {/* Auth Buttons */}
+            <Link to="/login">
+              <Button variant="ghost" size="sm">
+                Login
+              </Button>
+            </Link>
+            <Link to="/signup">
+              <Button size="sm">
+                Sign Up
+              </Button>
+            </Link>
+            
             {isWalletConnected ? (
               <div className="flex items-center space-x-2">
                 <div className="text-sm">
@@ -134,6 +147,21 @@ const Navbar = () => {
               
               <div className="pt-4 space-y-4">
                 <ThemeToggle />
+                
+                {/* Auth Buttons */}
+                <div className="flex gap-2">
+                  <Link to="/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="ghost" size="sm" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link to="/signup" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button size="sm" className="w-full">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </div>
+                
                 {isWalletConnected ? (
                   <div className="space-y-2">
                     <div className="text-sm">
