@@ -10,6 +10,8 @@ import Home from "./pages/Home";
 import Marketplace from "./pages/Marketplace";
 import MintNFT from "./pages/MintNFT";
 import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
               <Route path="/marketplace" element={<Marketplace />} />
               <Route path="/mint" element={<MintNFT />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
