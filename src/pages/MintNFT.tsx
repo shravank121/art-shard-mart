@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +26,7 @@ const MintNFT = () => {
   const [isMinting, setIsMinting] = useState(false);
   const [mintingStep, setMintingStep] = useState(0);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const mintingSteps = [
     "Uploading metadata to IPFS",
@@ -50,6 +52,18 @@ const MintNFT = () => {
   };
 
   const handleMint = async () => {
+    // Check if user is logged in
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    if (!isLoggedIn) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to mint NFTs.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
     if (!formData.image || !formData.title || !formData.description) {
       toast({
         title: "Missing Information",

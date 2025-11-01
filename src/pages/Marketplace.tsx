@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import NFTCard from "@/components/nft/NFTCard";
 import { Search, Filter, SlidersHorizontal } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Marketplace = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("recent");
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Mock NFT data
   const mockNFTs = [
@@ -86,6 +90,23 @@ const Marketplace = () => {
   const fractionalNFTs = filteredNFTs.filter(nft => nft.isFractional);
 
   const handlePurchase = (nftId: string) => {
+    // Check if user is logged in
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    if (!isLoggedIn) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to purchase NFTs.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    // Proceed with purchase
+    toast({
+      title: "Purchase Initiated",
+      description: "Processing your NFT purchase...",
+    });
     console.log("Purchasing NFT:", nftId);
     // Here you would integrate with smart contract
   };
