@@ -4,18 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { apiRegister } from "@/lib/api";
 
 const Signup = () => {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!email || !password || !confirmPassword) {
+
+    if (!username || !email || !password || !confirmPassword) {
       toast({
         title: "Missing Information",
         description: "Please fill in all fields.",
@@ -33,17 +35,15 @@ const Signup = () => {
       return;
     }
 
-    // Set logged in state in localStorage
-    localStorage.setItem("isLoggedIn", "true");
-    localStorage.setItem("userEmail", email);
-
-    toast({
-      title: "Account Created",
-      description: "Welcome to NFTFract!",
-    });
-
-    // Redirect to homepage
-    navigate("/");
+    try {
+      const user = await apiRegister(username, email, password);
+      localStorage.setItem("token", user.token);
+      localStorage.setItem("user", JSON.stringify(user));
+      toast({ title: "Account Created", description: "Welcome to NFTFract!" });
+      navigate("/");
+    } catch (err: any) {
+      toast({ title: "Registration failed", description: err.message || "", variant: "destructive" });
+    }
   };
 
   return (
@@ -62,6 +62,19 @@ const Signup = () => {
 
           {/* Form */}
           <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="yourname"
+                className="transition-all duration-300 focus:scale-[1.02]"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

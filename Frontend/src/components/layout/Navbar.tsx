@@ -40,8 +40,8 @@ const Navbar = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setIsLoggedIn(false);
     toast({
       title: "Logged Out",
@@ -51,10 +51,10 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    // Check if user is logged in
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
+    // Check if user is logged in (token presence)
+    const loggedIn = Boolean(localStorage.getItem("token"));
     setIsLoggedIn(loggedIn);
-  }, []);
+  }, [location]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -113,15 +113,22 @@ const Navbar = () => {
                 </Link>
               </>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="border-card-border"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
+              <div className="flex items-center gap-2">
+                <Link to="/profile">
+                  <Button variant="ghost" size="sm">
+                    Profile
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="border-card-border"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
             )}
             
             {isWalletConnected ? (

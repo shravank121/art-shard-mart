@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { apiLogin } from "@/lib/api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -11,9 +12,9 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast({
         title: "Missing Information",
@@ -23,17 +24,15 @@ const Login = () => {
       return;
     }
 
-    // Set logged in state in localStorage
-    localStorage.setItem("isLoggedIn", "true");
-    localStorage.setItem("userEmail", email);
-
-    toast({
-      title: "Login Successful",
-      description: "Welcome back!",
-    });
-
-    // Redirect to homepage
-    navigate("/");
+    try {
+      const user = await apiLogin(email, password);
+      localStorage.setItem("token", user.token);
+      localStorage.setItem("user", JSON.stringify(user));
+      toast({ title: "Login Successful", description: "Welcome back!" });
+      navigate("/");
+    } catch (err: any) {
+      toast({ title: "Login failed", description: err.message || "", variant: "destructive" });
+    }
   };
 
   return (

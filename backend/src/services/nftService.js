@@ -1,9 +1,12 @@
 import { wallet } from '../config/blockchain.js';
 import { ethers } from 'ethers';
 import { errorLogger } from '../utils/logger.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const ArtShardNFT = require('../abi/ArtShardNFT.json');
 
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
-const CONTRACT_ABI = []; // Add your ABI JSON
+const CONTRACT_ABI = ArtShardNFT.abi; // Add your ABI JSON
 
 export const mintNFTOnBlockchain = async (toAddress, metadataURI) => {
   try {

@@ -1,4 +1,7 @@
 {
+  "name": "art-shard-mart",
+  "version": "1.0.0",
+  "private": true,
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
@@ -13,5 +16,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n backend,frontend -c \"bgBlue.bold\",\"bgMagenta.bold\" \"npm --prefix backend run dev\" \"npm --prefix Frontend run dev\""
   }
 }
