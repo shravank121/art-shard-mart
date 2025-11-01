@@ -106,9 +106,7 @@ const Home = () => {
               <Button size="lg" variant="outline" className="text-lg px-8 border-card-border" asChild>
                 <Link to="/mint">Create NFT</Link>
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8 border-card-border" asChild>
-                <Link to="/profile">Profile</Link>
-              </Button>
+            
             </div>
           </div>
         </div>
