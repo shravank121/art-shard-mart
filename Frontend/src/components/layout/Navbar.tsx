@@ -2,42 +2,16 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Wallet, Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import WalletButton from "@/components/wallet/WalletButton";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState("");
-  const [ethBalance, setEthBalance] = useState("0.0");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const connectWallet = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_request_accounts' });
-        if (accounts.length > 0) {
-          setWalletAddress(accounts[0]);
-          setIsWalletConnected(true);
-          // Mock ETH balance for demo
-          setEthBalance("1.234");
-        }
-      } catch (error) {
-        console.error('Failed to connect wallet:', error);
-      }
-    } else {
-      alert('MetaMask is not installed. Please install MetaMask to continue.');
-    }
-  };
-
-  const disconnectWallet = () => {
-    setIsWalletConnected(false);
-    setWalletAddress("");
-    setEthBalance("0.0");
-  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -131,32 +105,7 @@ const Navbar = () => {
               </div>
             )}
             
-            {isWalletConnected ? (
-              <div className="flex items-center space-x-2">
-                <div className="text-sm">
-                  <div className="text-foreground font-medium">
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                  </div>
-                  <div className="text-muted-foreground">{ethBalance} ETH</div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={disconnectWallet}
-                  className="border-card-border"
-                >
-                  Disconnect
-                </Button>
-              </div>
-            ) : (
-              <Button
-                onClick={connectWallet}
-                className="btn-neon"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Connect Wallet
-              </Button>
-            )}
+            <WalletButton />
           </div>
 
           {/* Mobile Menu Button */}
@@ -219,32 +168,7 @@ const Navbar = () => {
                   </Button>
                 )}
                 
-                {isWalletConnected ? (
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <div className="text-foreground font-medium">
-                        {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                      </div>
-                      <div className="text-muted-foreground">{ethBalance} ETH</div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={disconnectWallet}
-                      className="w-full border-card-border"
-                    >
-                      Disconnect
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    onClick={connectWallet}
-                    className="w-full btn-neon"
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Connect Wallet
-                  </Button>
-                )}
+                <WalletButton />
               </div>
             </div>
           </div>

@@ -11,10 +11,35 @@ const CONTRACT_ABI = ArtShardNFT.abi; // Add your ABI JSON
 
 export const mintNFTOnBlockchain = async (toAddress, metadataURI) => {
   try {
+    // Validate dependencies
+    if (!wallet) {
+      throw new Error('Wallet not initialized. Check blockchain configuration.');
+    }
+    if (!CONTRACT_ADDRESS) {
+      throw new Error('CONTRACT_ADDRESS not set in environment variables');
+    }
+    if (!CONTRACT_ABI) {
+      throw new Error('Contract ABI not loaded');
+    }
+
+    console.log(`[mint] Wallet: ${wallet ? wallet.address : 'UNDEFINED'}`);
+    console.log(`[mint] Contract Address: ${CONTRACT_ADDRESS}`);
+    console.log(`[mint] ABI loaded: ${CONTRACT_ABI ? 'YES' : 'NO'}`);
+    
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, wallet);
-    console.log(`[mint] Using contract ${CONTRACT_ADDRESS}`);
+    console.log(`[mint] Contract instance created: ${contract ? 'YES' : 'NO'}`);
+    console.log(`[mint] Contract has mint function: ${typeof contract.mint === 'function' ? 'YES' : 'NO'}`);
     console.log(`[mint] To: ${toAddress}`);
     console.log(`[mint] MetadataURI: ${metadataURI}`);
+
+    // Check if wallet is owner
+    try {
+      const owner = await contract.owner();
+      console.log(`[mint] Contract owner: ${owner}`);
+      console.log(`[mint] Wallet is owner: ${owner.toLowerCase() === wallet.address.toLowerCase()}`);
+    } catch (e) {
+      console.log('[mint] Could not check owner:', e?.message);
+    }
 
     // Estimate gas
     let gasEstimate;
@@ -22,7 +47,9 @@ export const mintNFTOnBlockchain = async (toAddress, metadataURI) => {
       gasEstimate = await contract.estimateGas.mint(toAddress, metadataURI);
       console.log(`[mint] Estimated gas: ${gasEstimate?.toString?.() || gasEstimate}`);
     } catch (e) {
-      console.log('[mint] Gas estimate failed (continuing):', e?.message || e);
+      console.log('[mint] Gas estimate failed:', e?.message || e);
+      console.log('[mint] Error details:', e);
+      throw new Error(`Gas estimation failed: ${e?.message || 'Unknown error'}`);
     }
 
     const tx = await contract.mint(toAddress, metadataURI);
@@ -38,6 +65,7 @@ export const mintNFTOnBlockchain = async (toAddress, metadataURI) => {
     console.log('✅ NFT Minted:', tx.hash);
     return tx.hash;
   } catch (error) {
+    console.error('[mint] Full error:', error);
     errorLogger('Blockchain minting error', error);
     throw error;
   }

@@ -9,7 +9,14 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Image, Wallet, Coins, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiMintNFT } from "@/lib/api";
+import { useWallet } from "@/contexts/WalletContext";
+import { ethers } from "ethers";
+
+// Contract details
+const CONTRACT_ADDRESS = "0x941b12780a04968844668332c915aC2F246E0c7B";
+const CONTRACT_ABI = [
+  "function mint(address to, string memory tokenURI_) external returns (uint256)"
+];
 
 const MintNFT = () => {
   const [formData, setFormData] = useState({
@@ -29,6 +36,7 @@ const MintNFT = () => {
   const [mintingStep, setMintingStep] = useState(0);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { account, signer, isConnected, chainId } = useWallet();
 
   const mintingSteps = [
     "Uploading metadata to IPFS",
@@ -54,22 +62,70 @@ const MintNFT = () => {
   };
 
   const handleMint = async () => {
-    // Check if user is logged in (by token presence)
-    const token = localStorage.getItem("token");
-    if (!token) {
+    // Check if wallet is connected
+    if (!isConnected || !account || !signer) {
       toast({
-        title: "Authentication Required",
-        description: "Please log in to mint NFTs.",
+        title: "Wallet Not Connected",
+        description: "Please connect your MetaMask wallet to mint NFTs.",
         variant: "destructive",
       });
-      navigate("/login");
       return;
     }
 
-    if (!formData.toAddress || !formData.title || !formData.description) {
+    // Check if on correct network (Sepolia)
+    // Sepolia can be reported as 11155111 or "0xaa36a7" (hex)
+    const sepoliaChainIds = [11155111, 0xaa36a7];
+    if (chainId && !sepoliaChainIds.includes(chainId)) {
+      console.log("Current Chain ID:", chainId, "Expected: 11155111 (Sepolia)");
+      
+      // Try to switch network automatically
+      try {
+        await window.ethereum?.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0xaa36a7' }], // Sepolia in hex
+        });
+        // Wait a bit for network to switch
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (switchError: any) {
+        // This error code indicates that the chain has not been added to MetaMask
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum?.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia Testnet',
+                nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://sepolia.infura.io/v3/bef97c7d99a241579f118d6b1bb576bd'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io'],
+              }],
+            });
+          } catch (addError) {
+            toast({
+              title: "Failed to Add Network",
+              description: "Please add Sepolia network manually in MetaMask.",
+              variant: "destructive",
+            });
+            return;
+          }
+        } else {
+          toast({
+            title: "Wrong Network",
+            description: `Please switch to Sepolia testnet in MetaMask. Current: Chain ${chainId}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
+    // Use connected wallet address as recipient if not specified
+    const recipient = formData.toAddress || account;
+
+    if (!formData.title || !formData.description) {
       toast({
         title: "Missing Information",
-        description: "Please fill in recipient address, title and description.",
+        description: "Please fill in title and description.",
         variant: "destructive",
       });
       return;
@@ -79,38 +135,91 @@ const MintNFT = () => {
     setMintingStep(0);
 
     try {
-      // Build a simple mock metadata URI for testing
+      // Build metadata URI (mock for now)
+      const metadata = {
+        name: formData.title,
+        description: formData.description,
+        image: "ipfs://placeholder",
+      };
       const metadataURI = `ipfs://mock/${Date.now()}.json`;
 
       setMintingStep(0);
-      // Step 1: pretend upload
       await new Promise(r => setTimeout(r, 500));
+      
       setMintingStep(1);
+      console.log("🎨 Minting NFT...");
+      console.log("📝 Contract:", CONTRACT_ADDRESS);
+      console.log("👛 Recipient:", recipient);
+      console.log("📄 Metadata:", metadataURI);
 
-      // Step 2: call backend to mint
-      const res = await apiMintNFT(formData.toAddress, metadataURI);
+      // Create contract instance with user's signer
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+      // Call mint function (user signs with MetaMask)
+      const tx = await contract.mint(recipient, metadataURI);
+      console.log("📤 Transaction sent:", tx.hash);
+
+      toast({
+        title: "Transaction Submitted",
+        description: "Waiting for confirmation...",
+      });
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+      console.log("✅ Transaction confirmed:", receipt);
+
       setMintingStep(2);
 
       toast({
-        title: "NFT Minted",
-        description: `Transaction: ${res.txHash.slice(0, 10)}...`,
+        title: "NFT Minted Successfully! 🎉",
+        description: (
+          <div className="space-y-1">
+            <p>Token minted to: {recipient.slice(0, 10)}...</p>
+            <a 
+              href={`https://sepolia.etherscan.io/tx/${tx.hash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline text-sm"
+            >
+              View on Etherscan →
+            </a>
+          </div>
+        ),
       });
 
       setIsMinting(false);
       setMintingStep(0);
 
-      // Reset form minimal
+      // Reset form
       setFormData(prev => ({
         ...prev,
         title: "",
         description: "",
         image: null,
+        toAddress: "",
       }));
       setImagePreview("");
     } catch (err: any) {
+      console.error("❌ Mint error:", err);
       setIsMinting(false);
       setMintingStep(0);
-      toast({ title: "Mint failed", description: err?.message || "", variant: "destructive" });
+      
+      let errorMessage = err?.message || "Unknown error";
+      
+      // Handle common errors
+      if (err?.code === "ACTION_REJECTED") {
+        errorMessage = "Transaction rejected by user";
+      } else if (err?.message?.includes("insufficient funds")) {
+        errorMessage = "Insufficient ETH for gas fees";
+      } else if (err?.message?.includes("OwnableUnauthorizedAccount")) {
+        errorMessage = "You are not the contract owner";
+      }
+      
+      toast({ 
+        title: "Mint Failed", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -122,9 +231,15 @@ const MintNFT = () => {
           <h1 className="text-3xl lg:text-4xl font-bold mb-4">
             Mint Your <span className="gradient-primary bg-clip-text text-transparent">NFT</span>
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Transform your digital art into tradeable NFTs with optional fractionalization.
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Transform your digital art into unique, tradeable NFTs on the blockchain
           </p>
+          {/* Debug info */}
+          {isConnected && (
+            <div className="mt-4 text-xs text-muted-foreground">
+              Connected: {account?.slice(0, 10)}... | Chain ID: {chainId} {chainId === 11155111 ? "✅ Sepolia" : "⚠️"}
+            </div>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
@@ -190,14 +305,20 @@ const MintNFT = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="toAddress">Recipient Address *</Label>
+                <Label htmlFor="toAddress">Recipient Address (Optional)</Label>
                 <Input
                   id="toAddress"
-                  placeholder="0x..."
+                  placeholder={account ? `Leave empty to mint to your wallet (${account.slice(0, 10)}...)` : "Connect wallet first"}
                   value={formData.toAddress}
                   onChange={(e) => handleInputChange("toAddress", e.target.value)}
                   className="bg-background border-card-border"
+                  disabled={!isConnected}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {isConnected 
+                    ? "Leave empty to mint to your connected wallet" 
+                    : "Connect your wallet to mint NFTs"}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="title">Title *</Label>
@@ -335,10 +456,14 @@ const MintNFT = () => {
                 onClick={handleMint}
                 size="lg"
                 className="w-full btn-neon text-lg py-6"
-                disabled={!formData.toAddress || !formData.title || !formData.description}
+                disabled={!isConnected || !formData.title || !formData.description}
               >
                 <Coins className="w-5 h-5 mr-2" />
-                {formData.enableFractionalization ? "Mint & Fractionalize NFT" : "Mint NFT"}
+                {!isConnected 
+                  ? "Connect Wallet to Mint" 
+                  : formData.enableFractionalization 
+                    ? "Mint & Fractionalize NFT" 
+                    : "Mint NFT"}
               </Button>
             )}
           </div>

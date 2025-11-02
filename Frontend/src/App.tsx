@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { WalletProvider } from "./contexts/WalletContext";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import Home from "./pages/Home";
@@ -26,9 +27,10 @@ const App = () => (
       disableTransitionOnChange
     >
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+        <WalletProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
         <div className="min-h-screen flex flex-col bg-background">
           <Navbar />
           <main className="flex-1">
@@ -47,6 +49,7 @@ const App = () => (
           <Footer />
         </div>
       </BrowserRouter>
+        </WalletProvider>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

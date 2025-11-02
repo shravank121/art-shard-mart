@@ -4,17 +4,35 @@ import { errorLogger } from '../utils/logger.js';
 
 export const mintNFT = async (req, res) => {
   try {
+    console.log('\n🎨 ========== MINT REQUEST RECEIVED ==========');
+    console.log('📍 From User:', req.user?.email || req.user?.username || 'Unknown');
+    
     const { toAddress, metadataURI } = req.body;
+    console.log('📬 To Address:', toAddress);
+    console.log('📝 Metadata URI:', metadataURI);
+    
     if (!toAddress || !metadataURI) {
+      console.log('❌ Missing required fields');
       return res.status(400).json({ error: 'toAddress and metadataURI are required' });
     }
     if (!ethers.isAddress(toAddress)) {
+      console.log('❌ Invalid address format');
       return res.status(400).json({ error: 'Invalid recipient address. Please provide a 0x… address (ENS not supported on this network).' });
     }
 
+    console.log('🚀 Starting blockchain mint...\n');
     const txHash = await mintNFTOnBlockchain(toAddress, metadataURI);
+    
+    console.log('\n✅ ========== MINT SUCCESS ==========');
+    console.log('🔗 Transaction Hash:', txHash);
+    console.log('🌐 View on Etherscan: https://sepolia.etherscan.io/tx/' + txHash);
+    console.log('==========================================\n');
+    
     res.status(200).json({ success: true, txHash });
   } catch (error) {
+    console.log('\n❌ ========== MINT FAILED ==========');
+    console.log('Error:', error.message || error);
+    console.log('=====================================\n');
     errorLogger('Mint NFT error', error);
     res.status(500).json({ error: 'Minting failed' });
   }
