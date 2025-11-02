@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import NFTCard from "@/components/nft/NFTCard";
 import { Wallet, TrendingUp, Coins, Palette, Eye, Share2, MoreHorizontal } from "lucide-react";
+import { apiGetAllNFTs } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
-  // Mock user data
+  // Simple user data placeholder
   const userStats = {
     totalValue: "45.67",
     ownedNFTs: 12,
@@ -15,32 +17,39 @@ const Dashboard = () => {
     totalEarnings: "8.23"
   };
 
-  // Mock owned NFTs
-  const ownedNFTs = [
-    {
-      id: "1",
-      title: "My Digital Sunset",
-      artist: "You",
-      image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop",
-      price: "2.5",
-      currency: "ETH",
-      isFractional: false,
-      mintDate: "2024-01-15"
-    },
-    {
-      id: "2",
-      title: "Abstract Dreams",
-      artist: "You",
-      image: "https://images.unsplash.com/photo-1554188248-986adbb73be4?w=400&h=400&fit=crop",
-      price: "15.0",
-      currency: "ETH",
-      isFractional: true,
-      totalShares: 1000,
-      availableShares: 750,
-      pricePerShare: "0.015",
-      mintDate: "2024-01-10"
-    }
-  ];
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [ownedNFTs, setOwnedNFTs] = useState<Array<{
+    id: string | number;
+    title: string;
+    artist: string;
+    image: string;
+    price: string;
+    currency: string;
+  }>>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const nfts = await apiGetAllNFTs();
+        const placeholder = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop";
+        const mapped = nfts.map((n) => ({
+          id: n.id,
+          title: n.name || `Token #${n.id}`,
+          artist: n.owner ? `${n.owner.slice(0,6)}...${n.owner.slice(-4)}` : "",
+          image: n.uri?.startsWith("http") ? n.uri : placeholder,
+          price: "0",
+          currency: "ETH",
+        }));
+        setOwnedNFTs(mapped);
+      } catch (e: any) {
+        toast({ title: "Failed to load NFTs", description: e?.message || "", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   // Mock fractional holdings
   const fractionalHoldings = [
@@ -161,9 +170,14 @@ const Dashboard = () => {
           <TabsContent value="owned" className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {ownedNFTs.map((nft) => (
-                <div key={nft.id} className="space-y-2">
+                <div key={String(nft.id)} className="space-y-2">
                   <NFTCard
-                    {...nft}
+                    id={String(nft.id)}
+                    title={nft.title}
+                    artist={nft.artist}
+                    image={nft.image}
+                    price={nft.price}
+                    currency={nft.currency}
                     onPurchase={() => {}}
                     onView={() => console.log("View", nft.id)}
                     onShare={() => console.log("Share", nft.id)}

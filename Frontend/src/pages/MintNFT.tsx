@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Image, Wallet, Coins, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiMintNFT } from "@/lib/api";
 
 const MintNFT = () => {
   const [formData, setFormData] = useState({
@@ -19,6 +20,7 @@ const MintNFT = () => {
     enableFractionalization: false,
     totalShares: "1000",
     initialPrice: "1.0",
+    toAddress: "",
   });
   
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -52,9 +54,9 @@ const MintNFT = () => {
   };
 
   const handleMint = async () => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    if (!isLoggedIn) {
+    // Check if user is logged in (by token presence)
+    const token = localStorage.getItem("token");
+    if (!token) {
       toast({
         title: "Authentication Required",
         description: "Please log in to mint NFTs.",
@@ -64,10 +66,10 @@ const MintNFT = () => {
       return;
     }
 
-    if (!formData.image || !formData.title || !formData.description) {
+    if (!formData.toAddress || !formData.title || !formData.description) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields and upload an image.",
+        description: "Please fill in recipient address, title and description.",
         variant: "destructive",
       });
       return;
@@ -76,33 +78,40 @@ const MintNFT = () => {
     setIsMinting(true);
     setMintingStep(0);
 
-    // Simulate minting process
-    for (let i = 0; i < mintingSteps.length; i++) {
-      setMintingStep(i);
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Build a simple mock metadata URI for testing
+      const metadataURI = `ipfs://mock/${Date.now()}.json`;
+
+      setMintingStep(0);
+      // Step 1: pretend upload
+      await new Promise(r => setTimeout(r, 500));
+      setMintingStep(1);
+
+      // Step 2: call backend to mint
+      const res = await apiMintNFT(formData.toAddress, metadataURI);
+      setMintingStep(2);
+
+      toast({
+        title: "NFT Minted",
+        description: `Transaction: ${res.txHash.slice(0, 10)}...`,
+      });
+
+      setIsMinting(false);
+      setMintingStep(0);
+
+      // Reset form minimal
+      setFormData(prev => ({
+        ...prev,
+        title: "",
+        description: "",
+        image: null,
+      }));
+      setImagePreview("");
+    } catch (err: any) {
+      setIsMinting(false);
+      setMintingStep(0);
+      toast({ title: "Mint failed", description: err?.message || "", variant: "destructive" });
     }
-
-    toast({
-      title: "NFT Minted Successfully!",
-      description: formData.enableFractionalization 
-        ? `Your NFT has been minted and fractionalized into ${formData.totalShares} shares.`
-        : "Your NFT has been minted and is now available for trading.",
-    });
-
-    setIsMinting(false);
-    setMintingStep(0);
-
-    // Reset form
-    setFormData({
-      title: "",
-      description: "",
-      image: null,
-      royalty: "10",
-      enableFractionalization: false,
-      totalShares: "1000",
-      initialPrice: "1.0",
-    });
-    setImagePreview("");
   };
 
   return (
@@ -180,6 +189,16 @@ const MintNFT = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="toAddress">Recipient Address *</Label>
+                <Input
+                  id="toAddress"
+                  placeholder="0x..."
+                  value={formData.toAddress}
+                  onChange={(e) => handleInputChange("toAddress", e.target.value)}
+                  className="bg-background border-card-border"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="title">Title *</Label>
                 <Input
@@ -316,7 +335,7 @@ const MintNFT = () => {
                 onClick={handleMint}
                 size="lg"
                 className="w-full btn-neon text-lg py-6"
-                disabled={!formData.image || !formData.title || !formData.description}
+                disabled={!formData.toAddress || !formData.title || !formData.description}
               >
                 <Coins className="w-5 h-5 mr-2" />
                 {formData.enableFractionalization ? "Mint & Fractionalize NFT" : "Mint NFT"}

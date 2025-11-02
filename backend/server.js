@@ -7,6 +7,7 @@ import bodyParser from 'body-parser';
 import authRoutes from './src/routes/authRoutes.js';
 import nftRoutes from './src/routes/nftRoutes.js';
 import { initBlockchain } from './src/config/blockchain.js';
+import { startEventLogging } from './src/services/nftService.js';
 import { connectDB } from './src/config/db.js';
 import { errorLogger } from './src/utils/logger.js';
 
@@ -25,6 +26,8 @@ connectDB();
 
 // Initialize blockchain
 initBlockchain();
+// Start on-chain event subscriptions (logs to console)
+startEventLogging();
 
 // Routes
 app.use('/api/auth', authRoutes);
