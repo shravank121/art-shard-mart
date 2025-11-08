@@ -173,6 +173,18 @@ const Marketplace = () => {
                   key={nft.id}
                   {...nft}
                   onPurchase={() => handlePurchase(nft.id)}
+                  onView={() => navigate(`/nft/${nft.id}`)}
+                  onShare={async () => {
+                    const url = `${window.location.origin}/nft/${nft.id}`;
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: nft.title, url });
+                      } else {
+                        await navigator.clipboard.writeText(url);
+                        toast({ title: "Link copied", description: url });
+                      }
+                    } catch {}
+                  }}
                 />
               ))}
             </div>
@@ -185,6 +197,18 @@ const Marketplace = () => {
                   key={nft.id}
                   {...nft}
                   onPurchase={() => handlePurchase(nft.id)}
+                  onView={() => navigate(`/nft/${nft.id}`)}
+                  onShare={async () => {
+                    const url = `${window.location.origin}/nft/${nft.id}`;
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: nft.title, url });
+                      } else {
+                        await navigator.clipboard.writeText(url);
+                        toast({ title: "Link copied", description: url });
+                      }
+                    } catch {}
+                  }}
                 />
               ))}
             </div>
@@ -197,6 +221,18 @@ const Marketplace = () => {
                   key={nft.id}
                   {...nft}
                   onPurchase={() => handlePurchase(nft.id)}
+                  onView={() => navigate(`/nft/${nft.id}`)}
+                  onShare={async () => {
+                    const url = `${window.location.origin}/nft/${nft.id}`;
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: nft.title, url });
+                      } else {
+                        await navigator.clipboard.writeText(url);
+                        toast({ title: "Link copied", description: url });
+                      }
+                    } catch {}
+                  }}
                 />
               ))}
             </div>

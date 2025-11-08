@@ -1,6 +1,7 @@
 import { mintNFTOnBlockchain, fetchAllNFTs, getTxReceipt } from '../services/nftService.js';
 import { ethers } from 'ethers';
 import { errorLogger } from '../utils/logger.js';
+import { pinataPinFile, pinataPinJSON } from '../services/ipfs.js';
 
 export const mintNFT = async (req, res) => {
   try {
@@ -35,6 +36,40 @@ export const mintNFT = async (req, res) => {
     console.log('=====================================\n');
     errorLogger('Mint NFT error', error);
     res.status(500).json({ error: 'Minting failed' });
+  }
+};
+
+export const uploadToIPFS = async (req, res) => {
+  try {
+    const file = req.file;
+    const { name, description, attributes } = req.body || {};
+
+    if (!file) {
+      return res.status(400).json({ error: 'image file field is required' });
+    }
+
+    // Pin image
+    const { cid: imageCid, uri: imageURI } = await pinataPinFile(file.buffer, file.originalname);
+
+    // Build metadata JSON
+    let parsedAttributes = undefined;
+    if (attributes) {
+      try { parsedAttributes = JSON.parse(attributes); } catch { /* ignore */ }
+    }
+    const metadata = {
+      name: name || file.originalname,
+      description: description || '',
+      image: imageURI,
+      attributes: Array.isArray(parsedAttributes) ? parsedAttributes : undefined,
+    };
+
+    // Pin metadata
+    const { cid: metaCid, uri: metadataURI } = await pinataPinJSON(metadata);
+
+    return res.status(200).json({ imageCID: imageCid, imageURI, metadataCID: metaCid, metadataURI });
+  } catch (error) {
+    errorLogger('Upload to IPFS error', error);
+    res.status(500).json({ error: error?.message || 'Failed to upload to IPFS' });
   }
 };
 

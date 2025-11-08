@@ -81,9 +81,13 @@ export const startEventLogging = async () => {
     }
     // Capture current block to avoid replaying old events on startup
     START_BLOCK = await provider.getBlockNumber();
-    const readOnly = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    // Use a contract with the Transfer event ABI for event subscription
+    const EVENT_ABI = [
+      'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'
+    ];
+    const readOnlyEvents = new ethers.Contract(CONTRACT_ADDRESS, EVENT_ABI, provider);
     console.log(`[events] Subscribing to Transfer events for ${CONTRACT_ADDRESS}`);
-    readOnly.on('Transfer', async (from, to, tokenId, event) => {
+    readOnlyEvents.on('Transfer', async (from, to, tokenId, event) => {
       try {
         const id = tokenId?.toString?.() || tokenId;
         const blockNumber = event?.log?.blockNumber ?? event?.blockNumber;
@@ -105,11 +109,68 @@ export const startEventLogging = async () => {
 
 export const fetchAllNFTs = async () => {
   try {
-    // TODO: Fetch actual NFTs from blockchain
-    return [
-      { id: 1, name: 'Art #1', owner: '0x123...', uri: 'ipfs://xyz' },
-      { id: 2, name: 'Art #2', owner: '0x456...', uri: 'ipfs://abc' },
+    if (!CONTRACT_ADDRESS) throw new Error('CONTRACT_ADDRESS not set');
+    const ERC721_MIN_ABI = [
+      'function ownerOf(uint256 tokenId) view returns (address)',
+      'function tokenURI(uint256 tokenId) view returns (string)'
     ];
+    const readOnly = new ethers.Contract(CONTRACT_ADDRESS, ERC721_MIN_ABI, provider);
+
+    // Discover tokenIds by scanning Transfer logs
+    const fromBlockEnv = process.env.DEPLOY_BLOCK ? Number(process.env.DEPLOY_BLOCK) : 0;
+    const fromBlock = Number.isFinite(fromBlockEnv) && fromBlockEnv > 0 ? fromBlockEnv : 0;
+    const latest = await provider.getBlockNumber();
+    console.log(`[nfts] Querying Transfer events from block ${fromBlock} to ${latest}`);
+    const evReadOnly = new ethers.Contract(CONTRACT_ADDRESS, [
+      'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'
+    ], provider);
+    const transferFilter = evReadOnly.filters.Transfer?.() ?? { address: CONTRACT_ADDRESS, topics: [ethers.id('Transfer(address,address,uint256)')] };
+    const events = await evReadOnly.queryFilter(transferFilter, fromBlock, latest).catch(async () => {
+      // Fallback to provider.getLogs if queryFilter is not supported
+      return (await provider.getLogs({ address: CONTRACT_ADDRESS, topics: [ethers.id('Transfer(address,address,uint256)')], fromBlock, toBlock: latest }))
+        .map(l => ({ args: { tokenId: l.topics?.[3] ? BigInt(l.topics[3]).toString() : null } }));
+    });
+    console.log(`[nfts] Transfer events fetched: ${events.length}`);
+    const tokenIdSet = new Set();
+    for (const ev of events) {
+      try {
+        const tid = ev?.args?.tokenId?.toString?.() || ev?.args?.tokenId || null;
+        if (tid) tokenIdSet.add(String(tid));
+      } catch {}
+    }
+
+    // Resolve current owner and tokenURI for each tokenId
+    const ids = Array.from(tokenIdSet.values());
+    ids.sort((a, b) => BigInt(a) > BigInt(b) ? 1 : -1);
+    console.log(`[nfts] Unique tokenIds discovered: ${ids.length}`);
+    const results = [];
+    for (const id of ids) {
+      let owner = '';
+      let uri = '';
+      try { owner = await readOnly.ownerOf(id); } catch {}
+      try { uri = await readOnly.tokenURI(id); } catch {}
+      results.push({ id, name: '', owner: owner || '', uri: uri || '' });
+    }
+
+    // Fallback: if no logs (or nothing resolved), probe token IDs 0..200 defensively
+    if (results.length === 0) {
+      console.log('[nfts] No results from logs; probing token IDs 0..200 as fallback');
+      for (let i = 0; i <= 200; i++) {
+        const id = String(i);
+        try {
+          const [owner, uri] = await Promise.all([
+            readOnly.ownerOf(id),
+            readOnly.tokenURI(id),
+          ]);
+          results.push({ id, name: '', owner: owner || '', uri: uri || '' });
+        } catch (e) {
+          // ignore holes; uncomment to debug specific failures
+          // console.log(`[nfts] probe id=${id} failed:`, e?.message || e);
+        }
+      }
+      console.log(`[nfts] Fallback discovered tokens: ${results.length}`);
+    }
+    return results;
   } catch (error) {
     errorLogger('Fetch all NFTs error', error);
     throw error;

@@ -46,3 +46,28 @@ export async function apiGetAllNFTs() {
   if (!res.ok) throw new Error(data?.error || 'Failed to fetch NFTs');
   return data as Array<{ id: number|string; name: string; owner: string; uri: string }>;
 }
+
+export async function apiUploadToIPFS(params: {
+  image: File;
+  name: string;
+  description: string;
+  attributes?: Array<Record<string, any>>;
+}) {
+  const fd = new FormData();
+  fd.append('image', params.image);
+  fd.append('name', params.name);
+  fd.append('description', params.description);
+  if (params.attributes) fd.append('attributes', JSON.stringify(params.attributes));
+
+  const res = await fetch(`${API_URL}/api/nft/upload`, {
+    method: 'POST',
+    headers: {
+      // Authorization optional if backend protects /upload; safe to include
+      ...('Authorization' in authHeaders() ? { Authorization: authHeaders().Authorization } : {}),
+    } as any,
+    body: fd,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to upload to IPFS');
+  return data as { imageCID: string; imageURI: string; metadataCID: string; metadataURI: string };
+}

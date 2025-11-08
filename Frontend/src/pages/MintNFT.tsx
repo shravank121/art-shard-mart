@@ -11,6 +11,7 @@ import { Upload, Image, Wallet, Coins, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/contexts/WalletContext";
 import { ethers } from "ethers";
+import { apiUploadToIPFS } from "@/lib/api";
 
 // Contract details
 const CONTRACT_ADDRESS = "0x941b12780a04968844668332c915aC2F246E0c7B";
@@ -39,7 +40,7 @@ const MintNFT = () => {
   const { account, signer, isConnected, chainId } = useWallet();
 
   const mintingSteps = [
-    "Uploading metadata to IPFS",
+    "Uploading image & metadata to IPFS",
     "Minting NFT on blockchain",
     "Setting up fractionalization",
     "Deployment complete"
@@ -135,17 +136,22 @@ const MintNFT = () => {
     setMintingStep(0);
 
     try {
-      // Build metadata URI (mock for now)
-      const metadata = {
+      if (!formData.image) {
+        toast({ title: "Image required", description: "Please upload an image to mint.", variant: "destructive" });
+        setIsMinting(false);
+        return;
+      }
+
+      // 0) Upload to backend -> Pinata
+      setMintingStep(0);
+      const upload = await apiUploadToIPFS({
+        image: formData.image,
         name: formData.title,
         description: formData.description,
-        image: "ipfs://placeholder",
-      };
-      const metadataURI = `ipfs://mock/${Date.now()}.json`;
+      });
+      const metadataURI = upload.metadataURI;
 
-      setMintingStep(0);
-      await new Promise(r => setTimeout(r, 500));
-      
+      // 1) Mint on-chain
       setMintingStep(1);
       console.log("🎨 Minting NFT...");
       console.log("📝 Contract:", CONTRACT_ADDRESS);

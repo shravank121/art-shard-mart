@@ -7,6 +7,9 @@ import NFTCard from "@/components/nft/NFTCard";
 import { Wallet, TrendingUp, Coins, Palette, Eye, Share2, MoreHorizontal } from "lucide-react";
 import { apiGetAllNFTs } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import { fetchIpfsJson, ipfsToHttp } from "@/lib/ipfs";
+import { useWallet } from "@/contexts/WalletContext";
 
 const Dashboard = () => {
   // Simple user data placeholder
@@ -18,6 +21,7 @@ const Dashboard = () => {
   };
 
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [ownedNFTs, setOwnedNFTs] = useState<Array<{
     id: string | number;
@@ -27,20 +31,35 @@ const Dashboard = () => {
     price: string;
     currency: string;
   }>>([]);
+  const { account, isConnected } = useWallet();
 
   useEffect(() => {
     const load = async () => {
       try {
         const nfts = await apiGetAllNFTs();
+        // Filter by connected wallet; if not connected, show none
+        const myNfts = account
+          ? nfts.filter((n) => n.owner && n.owner.toLowerCase() === account.toLowerCase())
+          : [];
         const placeholder = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop";
-        const mapped = nfts.map((n) => ({
-          id: n.id,
-          title: n.name || `Token #${n.id}`,
-          artist: n.owner ? `${n.owner.slice(0,6)}...${n.owner.slice(-4)}` : "",
-          image: n.uri?.startsWith("http") ? n.uri : placeholder,
-          price: "0",
-          currency: "ETH",
-        }));
+        const mapped = await Promise.all(
+          myNfts.map(async (n) => {
+            let meta: any = null;
+            try {
+              if (n.uri) meta = await fetchIpfsJson(n.uri);
+            } catch {}
+            const img = meta?.image ? ipfsToHttp(meta.image) : (n.uri?.startsWith("http") ? n.uri : placeholder);
+            const title = meta?.name || n.name || `Token #${n.id}`;
+            return {
+              id: n.id,
+              title,
+              artist: n.owner ? `${n.owner.slice(0,6)}...${n.owner.slice(-4)}` : "",
+              image: img,
+              price: "0",
+              currency: "ETH",
+            };
+          })
+        );
         setOwnedNFTs(mapped);
       } catch (e: any) {
         toast({ title: "Failed to load NFTs", description: e?.message || "", variant: "destructive" });
@@ -49,7 +68,7 @@ const Dashboard = () => {
       }
     };
     load();
-  }, []);
+  }, [account]);
 
   // Mock fractional holdings
   const fractionalHoldings = [
@@ -179,15 +198,40 @@ const Dashboard = () => {
                     price={nft.price}
                     currency={nft.currency}
                     onPurchase={() => {}}
-                    onView={() => console.log("View", nft.id)}
-                    onShare={() => console.log("Share", nft.id)}
+                    onView={() => navigate(`/nft/${nft.id}`)}
+                    onShare={async () => {
+                      const url = `${window.location.origin}/nft/${nft.id}`;
+                      try {
+                        if (navigator.share) {
+                          await navigator.share({ title: nft.title, url });
+                        } else {
+                          await navigator.clipboard.writeText(url);
+                          toast({ title: "Link copied", description: url });
+                        }
+                      } catch {}
+                    }}
                   />
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 border-card-border">
+                    <Button size="sm" variant="outline" className="flex-1 border-card-border" onClick={() => navigate(`/nft/${nft.id}`)}>
                       <Eye className="w-4 h-4 mr-2" />
                       View
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 border-card-border">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 border-card-border"
+                      onClick={async () => {
+                        const url = `${window.location.origin}/nft/${nft.id}`;
+                        try {
+                          if (navigator.share) {
+                            await navigator.share({ title: nft.title, url });
+                          } else {
+                            await navigator.clipboard.writeText(url);
+                            toast({ title: "Link copied", description: url });
+                          }
+                        } catch {}
+                      }}
+                    >
                       <Share2 className="w-4 h-4 mr-2" />
                       Share
                     </Button>
@@ -248,7 +292,7 @@ const Dashboard = () => {
                         </div>
                         
                         <div className="flex flex-col sm:flex-row gap-2">
-                          <Button variant="outline" className="border-card-border">
+                          <Button variant="outline" className="border-card-border" onClick={() => navigate(`/nft/${holding.id}`)}>
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </Button>
