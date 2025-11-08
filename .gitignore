@@ -1,1 +1,13 @@
 node_modules
+
+## Ignore all environment files everywhere
+# Common .env names
+.env
+.env.*
+*.env
+.envrc
+
+# Recurse into subfolders (for older Git versions or tools)
+**/.env
+**/.env.*
+**/*.env
