@@ -36,3 +36,6 @@ debug.log
 **/Thumbs.db
 
 .cache_ggshield
+# Local-only docs (contain secrets)
+DEPLOYMENT_INFO.md
+WALLET_INTEGRATION.md
