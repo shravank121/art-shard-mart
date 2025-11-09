@@ -39,3 +39,5 @@ debug.log
 # Local-only docs (contain secrets)
 DEPLOYMENT_INFO.md
 WALLET_INTEGRATION.md
+# Explicit blockchain env
+blockchain/.env
