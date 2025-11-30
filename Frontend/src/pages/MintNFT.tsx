@@ -12,11 +12,19 @@ import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/contexts/WalletContext";
 import { ethers } from "ethers";
 import { apiUploadToIPFS } from "@/lib/api";
+import {
+  SEPOLIA_NFT_ADDRESS,
+  SEPOLIA_FRACTIONALIZE_ADDRESS,
+  NFT_ABI,
+  FRACTIONALIZE_ABI,
+} from "@/config/contracts";
 
 // Contract details
-const CONTRACT_ADDRESS = "0x09B462b7ECC3bfF4784Ee6172762992780bCc9d4";
+const CONTRACT_ADDRESS = SEPOLIA_NFT_ADDRESS;
 const CONTRACT_ABI = [
-  "function mint(address to, string memory tokenURI_) external returns (uint256)"
+  "function mint(address to, string memory tokenURI_) external returns (uint256)",
+  "function approve(address to, uint256 tokenId)",
+  "function totalSupply() view returns (uint256)",
 ];
 
 const MintNFT = () => {
@@ -174,24 +182,101 @@ const MintNFT = () => {
       const receipt = await tx.wait();
       console.log("✅ Transaction confirmed:", receipt);
 
-      setMintingStep(2);
+      // Get the minted token ID from the Transfer event
+      let mintedTokenId: number | null = null;
+      try {
+        // Try to get token ID from logs (Transfer event)
+        const transferTopic = ethers.id("Transfer(address,address,uint256)");
+        const transferLog = receipt.logs.find((log: any) => log.topics[0] === transferTopic);
+        if (transferLog && transferLog.topics[3]) {
+          mintedTokenId = Number(BigInt(transferLog.topics[3]));
+        }
+        // Fallback: get totalSupply (the last minted token)
+        if (!mintedTokenId) {
+          const totalSupply = await contract.totalSupply();
+          mintedTokenId = Number(totalSupply);
+        }
+      } catch (e) {
+        console.log("Could not get token ID:", e);
+      }
 
-      toast({
-        title: "NFT Minted Successfully! 🎉",
-        description: (
-          <div className="space-y-1">
-            <p>Token minted to: {recipient.slice(0, 10)}...</p>
-            <a 
-              href={`https://sepolia.etherscan.io/tx/${tx.hash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline text-sm"
-            >
-              View on Etherscan →
-            </a>
-          </div>
-        ),
-      });
+      console.log("🎫 Minted Token ID:", mintedTokenId);
+
+      // Step 2: Fractionalize if enabled
+      if (formData.enableFractionalization && mintedTokenId && SEPOLIA_FRACTIONALIZE_ADDRESS) {
+        setMintingStep(2);
+        toast({ title: "NFT Minted!", description: "Now fractionalizing..." });
+
+        try {
+          // Approve fractionalize contract to transfer the NFT
+          console.log("🔐 Approving fractionalize contract...");
+          const approveTx = await contract.approve(SEPOLIA_FRACTIONALIZE_ADDRESS, mintedTokenId);
+          await approveTx.wait();
+          console.log("✅ Approval confirmed");
+
+          // Fractionalize the NFT
+          console.log("🔀 Fractionalizing NFT...");
+          const fracContract = new ethers.Contract(SEPOLIA_FRACTIONALIZE_ADDRESS, FRACTIONALIZE_ABI, signer);
+          const shares = ethers.parseUnits(formData.totalShares, 18);
+          const reservePrice = ethers.parseEther(
+            (parseFloat(formData.initialPrice) * parseFloat(formData.totalShares)).toString()
+          );
+
+          const fracTx = await fracContract.fractionalize(
+            CONTRACT_ADDRESS,
+            mintedTokenId,
+            `${formData.title} Shares`,
+            `${formData.title.substring(0, 4).toUpperCase()}S`,
+            shares,
+            reservePrice
+          );
+          await fracTx.wait();
+          console.log("✅ Fractionalization confirmed");
+
+          setMintingStep(3);
+          toast({
+            title: "NFT Minted & Fractionalized! 🎉",
+            description: (
+              <div className="space-y-1">
+                <p>Token #{mintedTokenId} fractionalized into {formData.totalShares} shares</p>
+                <a 
+                  href={`https://sepolia.etherscan.io/tx/${fracTx.hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline text-sm"
+                >
+                  View on Etherscan →
+                </a>
+              </div>
+            ),
+          });
+        } catch (fracError: any) {
+          console.error("❌ Fractionalization error:", fracError);
+          toast({
+            title: "NFT Minted, but Fractionalization Failed",
+            description: `Token #${mintedTokenId} was minted. You can fractionalize it later from the Fractionalize page. Error: ${fracError?.shortMessage || fracError?.message}`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        setMintingStep(3);
+        toast({
+          title: "NFT Minted Successfully! 🎉",
+          description: (
+            <div className="space-y-1">
+              <p>Token #{mintedTokenId || "?"} minted to: {recipient.slice(0, 10)}...</p>
+              <a 
+                href={`https://sepolia.etherscan.io/tx/${tx.hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline text-sm"
+              >
+                View on Etherscan →
+              </a>
+            </div>
+          ),
+        });
+      }
 
       setIsMinting(false);
       setMintingStep(0);
@@ -203,6 +288,7 @@ const MintNFT = () => {
         description: "",
         image: null,
         toAddress: "",
+        enableFractionalization: false,
       }));
       setImagePreview("");
     } catch (err: any) {

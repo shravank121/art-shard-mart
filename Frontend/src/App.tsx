@@ -16,6 +16,8 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import NFTDetails from "./pages/NFTDetails";
+import Fractionalize from "./pages/Fractionalize";
+import SellNFT from "./pages/SellNFT";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,8 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/nft/:id" element={<NFTDetails />} />
+              <Route path="/fractionalize" element={<Fractionalize />} />
+              <Route path="/sell" element={<SellNFT />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

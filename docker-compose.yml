@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: artshard-backend
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - RPC_URL=${RPC_URL}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - PINATA_JWT=${PINATA_JWT}
+      - DEPLOY_BLOCK=${DEPLOY_BLOCK:-0}
+    restart: unless-stopped
+    networks:
+      - artshard-network
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
+        - VITE_SEPOLIA_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_MARKETPLACE_ADDRESS}
+    container_name: artshard-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - artshard-network
+
+networks:
+  artshard-network:
+    driver: bridge

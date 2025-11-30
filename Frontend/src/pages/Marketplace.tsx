@@ -1,17 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import NFTCard from "@/components/nft/NFTCard";
-import { Search, Filter, SlidersHorizontal } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, ShoppingBag, Tag, Coins, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { ethers } from "ethers";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { SEPOLIA_NFT_ADDRESS, SEPOLIA_MARKETPLACE_ADDRESS, NFT_ABI, MARKETPLACE_ABI } from "@/config/contracts";
+import {
+  SEPOLIA_NFT_ADDRESS,
+  SEPOLIA_MARKETPLACE_ADDRESS,
+  SEPOLIA_FRACTIONALIZE_ADDRESS,
+  SEPOLIA_FRACTION_MARKETPLACE_ADDRESS,
+  NFT_ABI,
+  MARKETPLACE_ABI,
+  FRACTIONALIZE_ABI,
+  FRACTION_TOKEN_ABI,
+  FRACTION_MARKETPLACE_ABI,
+} from "@/config/contracts";
+
+const SEPOLIA_RPC = "https://sepolia.infura.io/v3/bef97c7d99a241579f118d6b1bb576bd";
+
+interface NFTListing {
+  tokenId: number;
+  seller: string;
+  priceEth: string;
+  name?: string;
+  image?: string;
+}
+
+interface ShareListing {
+  listingId: number;
+  seller: string;
+  fractionToken: string;
+  amount: string;
+  pricePerShare: string;
+  totalPrice: string;
+  tokenName?: string;
+  tokenSymbol?: string;
+  nftImage?: string;
+  nftName?: string;
+  vaultId?: number;
+}
 
 const Marketplace = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,283 +53,172 @@ const Marketplace = () => {
   const { toast } = useToast();
   const { signer, account, isConnected } = useWallet();
 
-  const [listTokenId, setListTokenId] = useState("");
-  const [listPriceEth, setListPriceEth] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeListings, setActiveListings] = useState<Array<{ tokenId: number; seller: string; priceEth: string }>>([]);
-  const [myTokens, setMyTokens] = useState<Array<{ tokenId: number; name?: string; image?: string }>>([]);
+  const [loadingNFTs, setLoadingNFTs] = useState(true);
+  const [loadingShares, setLoadingShares] = useState(true);
+  const [nftListings, setNftListings] = useState<NFTListing[]>([]);
+  const [shareListings, setShareListings] = useState<ShareListing[]>([]);
+  const [buyAmount, setBuyAmount] = useState<{ [key: number]: string }>({});
 
-  const contracts = () => {
-    if (!signer) return { nft: null as any, market: null as any };
-    const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, signer);
-    const market = new ethers.Contract(SEPOLIA_MARKETPLACE_ADDRESS, MARKETPLACE_ABI, signer);
-    return { nft, market };
-  };
-
-  // Mock NFT data
-  const mockNFTs = [
-    {
-      id: "1",
-      title: "Digital Sunset #1",
-      artist: "ArtistName",
-      image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=400&fit=crop",
-      price: "2.5",
-      currency: "ETH",
-      isFractional: false,
-    },
-    {
-      id: "2",
-      title: "Cyber Dreams",
-      artist: "CryptoCreator",
-      image: "https://images.unsplash.com/photo-1606041008023-472dfb5e530f?w=400&h=400&fit=crop",
-      price: "15.0",
-      currency: "ETH",
-      isFractional: true,
-      totalShares: 1000,
-      availableShares: 750,
-      pricePerShare: "0.015",
-    },
-    {
-      id: "3",
-      title: "Abstract Flow",
-      artist: "DigitalMaster",
-      image: "https://images.unsplash.com/photo-1554188248-986adbb73be4?w=400&h=400&fit=crop",
-      price: "1.8",
-      currency: "ETH",
-      isFractional: false,
-    },
-    {
-      id: "4",
-      title: "Neon Genesis",
-      artist: "FutureArt",
-      image: "https://images.unsplash.com/photo-1563089145-599997674d42?w=400&h=400&fit=crop",
-      price: "8.5",
-      currency: "ETH",
-      isFractional: true,
-      totalShares: 500,
-      availableShares: 320,
-      pricePerShare: "0.017",
-    },
-    {
-      id: "5",
-      title: "Quantum Realm",
-      artist: "SciFiArtist",
-      image: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=400&fit=crop",
-      price: "3.2",
-      currency: "ETH",
-      isFractional: false,
-    },
-    {
-      id: "6",
-      title: "Digital Harmony",
-      artist: "TechCreative",
-      image: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&h=400&fit=crop",
-      price: "12.0",
-      currency: "ETH",
-      isFractional: true,
-      totalShares: 800,
-      availableShares: 600,
-      pricePerShare: "0.015",
-    },
-  ];
-
-  const filteredNFTs = mockNFTs.filter(nft =>
-    nft.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    nft.artist.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const fullNFTs = filteredNFTs.filter(nft => !nft.isFractional);
-  const fractionalNFTs = filteredNFTs.filter(nft => nft.isFractional);
-
-  const handlePurchase = (nftId: string) => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    if (!isLoggedIn) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to purchase NFTs.",
-        variant: "destructive",
-      });
-      navigate("/login");
-      return;
-    }
-
-    // Proceed with purchase
-    toast({
-      title: "Purchase Initiated",
-      description: "Processing your NFT purchase...",
-    });
-    console.log("Purchasing NFT:", nftId);
-    // Here you would integrate with smart contract
-  };
-
-  const loadListings = async () => {
-    if (!signer || !SEPOLIA_MARKETPLACE_ADDRESS) return;
-    try {
-      const { nft, market } = contracts();
-      
-      // Get total supply to know how many tokens exist
-      let maxTokenId = 50;
-      try {
-        const supply = await nft.totalSupply();
-        maxTokenId = Math.min(Number(supply), 100); // Cap at 100 for performance
-      } catch {}
-      
-      if (maxTokenId === 0) {
-        setActiveListings([]);
-        return;
-      }
-
-      // Fetch all listings in parallel
-      const tokenIds = Array.from({ length: maxTokenId }, (_, i) => i + 1);
-      const results = await Promise.allSettled(
-        tokenIds.map(async (tokenId) => {
-          const l = await market.getListing(SEPOLIA_NFT_ADDRESS, tokenId);
-          return { tokenId, listing: l };
-        })
-      );
-
-      const items: Array<{ tokenId: number; seller: string; priceEth: string }> = [];
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value.listing.isActive) {
-          const { tokenId, listing } = result.value;
-          items.push({ tokenId, seller: listing.seller, priceEth: ethers.formatEther(listing.price) });
-        }
-      }
-      setActiveListings(items);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const getReadOnlyProvider = () => new ethers.JsonRpcProvider(SEPOLIA_RPC);
 
   const resolveIpfs = (uri?: string) => {
     if (!uri) return "";
-    if (uri.startsWith("ipfs://")) {
-      return `https://ipfs.io/ipfs/${uri.replace("ipfs://", "")}`;
-    }
+    if (uri.startsWith("ipfs://")) return `https://ipfs.io/ipfs/${uri.replace("ipfs://", "")}`;
     return uri;
   };
 
-  const loadMyTokens = async () => {
-    if (!signer || !account) return;
+  // Load NFT listings
+  const loadNFTListings = async () => {
+    if (!SEPOLIA_MARKETPLACE_ADDRESS) {
+      setLoadingNFTs(false);
+      return;
+    }
     try {
-      const { nft } = contracts();
-      
-      // Get total supply to know how many tokens exist
+      setLoadingNFTs(true);
+      const provider = getReadOnlyProvider();
+      const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, provider);
+      const market = new ethers.Contract(SEPOLIA_MARKETPLACE_ADDRESS, MARKETPLACE_ABI, provider);
+
       let maxTokenId = 50;
       try {
         const supply = await nft.totalSupply();
-        maxTokenId = Math.min(Number(supply), 100); // Cap at 100 for performance
+        maxTokenId = Math.min(Number(supply), 100);
       } catch {}
-      
+
       if (maxTokenId === 0) {
-        setMyTokens([]);
+        setNftListings([]);
         return;
       }
 
-      // Fetch all owners in parallel
       const tokenIds = Array.from({ length: maxTokenId }, (_, i) => i + 1);
-      const ownerResults = await Promise.allSettled(
+      const results = await Promise.allSettled(
         tokenIds.map(async (tokenId) => {
-          const owner = await nft.ownerOf(tokenId);
-          return { tokenId, owner };
+          const listing = await market.getListing(SEPOLIA_NFT_ADDRESS, tokenId);
+          return { tokenId, listing };
         })
       );
 
-      // Filter tokens owned by current account
-      const myTokenIds: number[] = [];
-      for (const result of ownerResults) {
-        if (result.status === "fulfilled" && result.value.owner?.toLowerCase() === account.toLowerCase()) {
-          myTokenIds.push(result.value.tokenId);
-        }
-      }
-
-      // Fetch metadata for owned tokens in parallel
-      const metadataResults = await Promise.allSettled(
-        myTokenIds.map(async (tokenId) => {
-          let name: string | undefined;
-          let image: string | undefined;
+      const active: NFTListing[] = [];
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value.listing.isActive) {
+          const { tokenId, listing } = result.value;
+          let name: string | undefined, image: string | undefined;
           try {
-            const uri: string = await nft.tokenURI(tokenId);
-            const url = resolveIpfs(uri);
-            const res = await fetch(url);
+            const uri = await nft.tokenURI(tokenId);
+            const res = await fetch(resolveIpfs(uri));
             const meta = await res.json();
             name = meta?.name;
             image = resolveIpfs(meta?.image || meta?.image_url);
           } catch {}
-          return { tokenId, name, image };
-        })
-      );
-
-      const mine: Array<{ tokenId: number; name?: string; image?: string }> = [];
-      for (const result of metadataResults) {
-        if (result.status === "fulfilled") {
-          mine.push(result.value);
+          active.push({ tokenId, seller: listing.seller, priceEth: ethers.formatEther(listing.price), name, image });
         }
       }
-      setMyTokens(mine);
+
+      if (sortBy === "price-low") active.sort((a, b) => parseFloat(a.priceEth) - parseFloat(b.priceEth));
+      else if (sortBy === "price-high") active.sort((a, b) => parseFloat(b.priceEth) - parseFloat(a.priceEth));
+
+      setNftListings(active);
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoadingNFTs(false);
+    }
+  };
+
+  // Load share listings
+  const loadShareListings = async () => {
+    if (!SEPOLIA_FRACTION_MARKETPLACE_ADDRESS) {
+      setLoadingShares(false);
+      return;
+    }
+    try {
+      setLoadingShares(true);
+      const provider = getReadOnlyProvider();
+      const fracMarket = new ethers.Contract(SEPOLIA_FRACTION_MARKETPLACE_ADDRESS, FRACTION_MARKETPLACE_ABI, provider);
+      const frac = new ethers.Contract(SEPOLIA_FRACTIONALIZE_ADDRESS, FRACTIONALIZE_ABI, provider);
+      const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, provider);
+
+      const count = await fracMarket.listingCount();
+      const active: ShareListing[] = [];
+
+      for (let i = 1; i <= Number(count); i++) {
+        try {
+          const [seller, fractionToken, amount, pricePerShare, isActive] = await fracMarket.getListing(i);
+          if (!isActive || amount === 0n) continue;
+
+          const amountStr = ethers.formatUnits(amount, 18);
+          const priceStr = ethers.formatEther(pricePerShare);
+          const totalPrice = (parseFloat(amountStr) * parseFloat(priceStr)).toFixed(4);
+
+          let tokenName = "", tokenSymbol = "", nftImage = "", nftName = "", vaultId = 0;
+
+          try {
+            const token = new ethers.Contract(fractionToken, FRACTION_TOKEN_ABI, provider);
+            tokenName = await token.name();
+            tokenSymbol = await token.symbol();
+          } catch {}
+
+          // Find vault for this fraction token
+          try {
+            const vaultCount = await frac.vaultCount();
+            for (let v = 1; v <= Number(vaultCount); v++) {
+              const vault = await frac.getVault(v);
+              if (vault.fractionToken.toLowerCase() === fractionToken.toLowerCase()) {
+                vaultId = v;
+                try {
+                  const uri = await nft.tokenURI(vault.tokenId);
+                  const res = await fetch(resolveIpfs(uri));
+                  const meta = await res.json();
+                  nftName = meta?.name || `NFT #${vault.tokenId}`;
+                  nftImage = resolveIpfs(meta?.image || meta?.image_url);
+                } catch {}
+                break;
+              }
+            }
+          } catch {}
+
+          active.push({
+            listingId: i,
+            seller,
+            fractionToken,
+            amount: amountStr,
+            pricePerShare: priceStr,
+            totalPrice,
+            tokenName,
+            tokenSymbol,
+            nftImage,
+            nftName,
+            vaultId,
+          });
+        } catch {}
+      }
+
+      setShareListings(active);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingShares(false);
     }
   };
 
   useEffect(() => {
-    loadListings();
-    loadMyTokens();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signer, account, SEPOLIA_MARKETPLACE_ADDRESS]);
+    loadNFTListings();
+    loadShareListings();
+  }, [sortBy]);
 
-  const listForSale = async () => {
-    if (!isConnected || !signer) {
-      toast({ title: "Connect wallet", variant: "destructive" });
-      return;
-    }
-    if (!listTokenId || !listPriceEth) {
-      toast({ title: "Enter tokenId and price", variant: "destructive" });
-      return;
-    }
-    if (!SEPOLIA_MARKETPLACE_ADDRESS) {
-      toast({ title: "Marketplace not configured", description: "Set VITE_SEPOLIA_MARKETPLACE_ADDRESS", variant: "destructive" });
-      return;
-    }
-    try {
-      setLoading(true);
-      const { nft, market } = contracts();
-      const tokenIdNum = Number(listTokenId);
-      const approved = await nft.getApproved(tokenIdNum);
-      if (approved.toLowerCase() !== SEPOLIA_MARKETPLACE_ADDRESS.toLowerCase()) {
-        const txApprove = await nft.approve(SEPOLIA_MARKETPLACE_ADDRESS, tokenIdNum);
-        await txApprove.wait();
-      }
-      const tx = await market.listItem(SEPOLIA_NFT_ADDRESS, tokenIdNum, ethers.parseEther(listPriceEth));
-      await tx.wait();
-      toast({ title: "Listed", description: `Token #${tokenIdNum} for ${listPriceEth} ETH` });
-      setListPriceEth("");
-      setListTokenId("");
-      // Refresh listings in background, don't block on errors
-      loadListings().catch(console.error);
-      loadMyTokens().catch(console.error);
-    } catch (e: any) {
-      console.error("List error:", e);
-      toast({ title: "List failed", description: e?.shortMessage || e?.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const buyListing = async (tokenId: number, priceEth: string) => {
+  const handleBuyNFT = async (tokenId: number, priceEth: string) => {
     if (!isConnected || !signer) {
       toast({ title: "Connect wallet", variant: "destructive" });
       return;
     }
     try {
       setLoading(true);
-      const { market } = contracts();
+      const market = new ethers.Contract(SEPOLIA_MARKETPLACE_ADDRESS, MARKETPLACE_ABI, signer);
       const tx = await market.buyItem(SEPOLIA_NFT_ADDRESS, tokenId, { value: ethers.parseEther(priceEth) });
       await tx.wait();
-      toast({ title: "Purchased", description: `Token #${tokenId}` });
-      loadListings();
-      loadMyTokens();
+      toast({ title: "Purchase successful! 🎉", description: `You now own Token #${tokenId}` });
+      loadNFTListings();
     } catch (e: any) {
       toast({ title: "Purchase failed", description: e?.shortMessage || e?.message, variant: "destructive" });
     } finally {
@@ -304,278 +226,209 @@ const Marketplace = () => {
     }
   };
 
-  const cancelMyListing = async (tokenId: number) => {
+  const handleBuyShares = async (listingId: number, pricePerShare: string, maxAmount: string) => {
     if (!isConnected || !signer) {
       toast({ title: "Connect wallet", variant: "destructive" });
       return;
     }
+    const amount = buyAmount[listingId] || maxAmount;
+    if (!amount || parseFloat(amount) <= 0) {
+      toast({ title: "Enter amount to buy", variant: "destructive" });
+      return;
+    }
     try {
       setLoading(true);
-      const { market } = contracts();
-      const tx = await market.cancelListing(SEPOLIA_NFT_ADDRESS, tokenId);
+      const fracMarket = new ethers.Contract(SEPOLIA_FRACTION_MARKETPLACE_ADDRESS, FRACTION_MARKETPLACE_ABI, signer);
+      const amountWei = ethers.parseUnits(amount, 18);
+      const totalPrice = ethers.parseEther((parseFloat(amount) * parseFloat(pricePerShare)).toString());
+      const tx = await fracMarket.buyShares(listingId, amountWei, { value: totalPrice });
       await tx.wait();
-      toast({ title: "Listing cancelled", description: `Token #${tokenId}` });
-      loadListings();
+      toast({ title: "Shares purchased! 🎉", description: `Bought ${amount} shares` });
+      loadShareListings();
     } catch (e: any) {
-      toast({ title: "Cancel failed", description: e?.shortMessage || e?.message, variant: "destructive" });
+      toast({ title: "Purchase failed", description: e?.shortMessage || e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
+  const filteredNFTs = nftListings.filter(l =>
+    l.name?.toLowerCase().includes(searchQuery.toLowerCase()) || `#${l.tokenId}`.includes(searchQuery)
+  );
+
+  const filteredShares = shareListings.filter(l =>
+    l.tokenName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    l.nftName?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen py-8">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl lg:text-4xl font-bold mb-4">
-            NFT <span className="gradient-primary bg-clip-text text-transparent">Marketplace</span>
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Discover and collect unique digital assets, or own fractions of premium NFTs.
-          </p>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="mb-8 space-y-4">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search NFTs or artists..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-card border-card-border"
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-40 bg-card border-card-border">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Most Recent</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
-                  <SelectItem value="popular">Most Popular</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Button variant="outline" size="sm" className="border-card-border">
-                <SlidersHorizontal className="w-4 h-4 mr-2" />
-                Filters
-              </Button>
-            </div>
+        <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl lg:text-4xl font-bold mb-2">
+              <span className="gradient-primary bg-clip-text text-transparent">Marketplace</span>
+            </h1>
+            <p className="text-muted-foreground">Buy NFTs or fraction shares from creators worldwide.</p>
           </div>
+          <Button onClick={() => navigate("/sell")} className="btn-neon">
+            <Tag className="w-4 h-4 mr-2" />
+            Sell Assets
+          </Button>
         </div>
 
-        {/* NFT Tabs */}
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-3 mb-8">
-            <TabsTrigger value="all">All NFTs ({filteredNFTs.length})</TabsTrigger>
-            <TabsTrigger value="fractional">Fractional ({fractionalNFTs.length})</TabsTrigger>
-            <TabsTrigger value="full">Full Ownership ({fullNFTs.length})</TabsTrigger>
+        <div className="mb-8 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-card border-card-border"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-44 bg-card border-card-border">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Most Recent</SelectItem>
+              <SelectItem value="price-low">Price: Low to High</SelectItem>
+              <SelectItem value="price-high">Price: High to Low</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Tabs defaultValue="nfts" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger value="nfts" className="flex items-center gap-2">
+              <Image className="w-4 h-4" />
+              NFTs ({filteredNFTs.length})
+            </TabsTrigger>
+            <TabsTrigger value="shares" className="flex items-center gap-2">
+              <Coins className="w-4 h-4" />
+              Fraction Shares ({filteredShares.length})
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="all" className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredNFTs.map((nft) => (
-                <NFTCard
-                  key={nft.id}
-                  {...nft}
-                  onPurchase={() => handlePurchase(nft.id)}
-                  onView={() => navigate(`/nft/${nft.id}`)}
-                  onShare={async () => {
-                    const url = `${window.location.origin}/nft/${nft.id}`;
-                    try {
-                      if (navigator.share) {
-                        await navigator.share({ title: nft.title, url });
-                      } else {
-                        await navigator.clipboard.writeText(url);
-                        toast({ title: "Link copied", description: url });
-                      }
-                    } catch {}
-                  }}
-                />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="fractional" className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {fractionalNFTs.map((nft) => (
-                <NFTCard
-                  key={nft.id}
-                  {...nft}
-                  onPurchase={() => handlePurchase(nft.id)}
-                  onView={() => navigate(`/nft/${nft.id}`)}
-                  onShare={async () => {
-                    const url = `${window.location.origin}/nft/${nft.id}`;
-                    try {
-                      if (navigator.share) {
-                        await navigator.share({ title: nft.title, url });
-                      } else {
-                        await navigator.clipboard.writeText(url);
-                        toast({ title: "Link copied", description: url });
-                      }
-                    } catch {}
-                  }}
-                />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="full" className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {fullNFTs.map((nft) => (
-                <NFTCard
-                  key={nft.id}
-                  {...nft}
-                  onPurchase={() => handlePurchase(nft.id)}
-                  onView={() => navigate(`/nft/${nft.id}`)}
-                  onShare={async () => {
-                    const url = `${window.location.origin}/nft/${nft.id}`;
-                    try {
-                      if (navigator.share) {
-                        await navigator.share({ title: nft.title, url });
-                      } else {
-                        await navigator.clipboard.writeText(url);
-                        toast({ title: "Link copied", description: url });
-                      }
-                    } catch {}
-                  }}
-                />
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* On-chain List & Active Listings */}
-        <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          <Card className="bg-card border-card-border lg:col-span-1">
-            <CardHeader>
-              <CardTitle>List NFT for Sale</CardTitle>
-              <CardDescription>Approve and list your token</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input
-                placeholder="Token ID"
-                value={listTokenId}
-                onChange={(e) => setListTokenId(e.target.value)}
-                className="bg-background border-card-border"
-                type="number"
-                min={0}
-              />
-              <Input
-                placeholder="Price (ETH)"
-                value={listPriceEth}
-                onChange={(e) => setListPriceEth(e.target.value)}
-                className="bg-background border-card-border"
-                type="number"
-                min={0}
-                step="0.0001"
-              />
-              <Button onClick={listForSale} disabled={loading || !SEPOLIA_MARKETPLACE_ADDRESS} className="w-full">
-                {loading ? "Processing..." : "List for Sale"}
-              </Button>
-              {!SEPOLIA_MARKETPLACE_ADDRESS && (
-                <p className="text-xs text-yellow-500">Set VITE_SEPOLIA_MARKETPLACE_ADDRESS in .env</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-card-border lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Active Listings</CardTitle>
-              <CardDescription>First 50 token IDs scanned</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {activeListings.length === 0 ? (
-                <p className="text-muted-foreground">No active listings found.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {activeListings.map((it) => (
-                    <div key={it.tokenId} className="p-4 rounded-lg border border-card-border bg-background">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-semibold">Token #{it.tokenId}</div>
-                        <div className="text-sm text-muted-foreground">{it.priceEth} ETH</div>
-                      </div>
-                      <div className="text-xs text-muted-foreground mb-3">
-                        Seller: {it.seller.slice(0, 6)}...{it.seller.slice(-4)}
-                      </div>
-                      {account && it.seller.toLowerCase() === account.toLowerCase() ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button size="sm" variant="secondary" disabled>
-                            Your Listing
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => cancelMyListing(it.tokenId)} disabled={loading}>
-                            Cancel
-                          </Button>
-                        </div>
+          <TabsContent value="nfts">
+            {loadingNFTs ? (
+              <div className="text-center py-12">
+                <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
+                <p className="text-muted-foreground">Loading NFTs...</p>
+              </div>
+            ) : filteredNFTs.length === 0 ? (
+              <div className="text-center py-12">
+                <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No NFTs Listed</h3>
+                <Button onClick={() => navigate("/sell")}>List Your NFT</Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredNFTs.map((listing) => (
+                  <Card key={listing.tokenId} className="bg-card border-card-border overflow-hidden hover:border-primary/50 transition-all">
+                    <div className="relative">
+                      {listing.image ? (
+                        <img src={listing.image} alt={listing.name} className="w-full aspect-square object-cover" />
                       ) : (
-                        <Button size="sm" className="w-full" onClick={() => buyListing(it.tokenId, it.priceEth)} disabled={loading}>
-                          Buy
-                        </Button>
+                        <div className="w-full aspect-square bg-muted flex items-center justify-center">
+                          <span className="text-3xl text-muted-foreground">#{listing.tokenId}</span>
+                        </div>
+                      )}
+                      {account && listing.seller.toLowerCase() === account.toLowerCase() && (
+                        <Badge className="absolute top-2 right-2">Your Listing</Badge>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* My Tokens (owned by connected wallet) */}
-        <div className="mt-10">
-          <Card className="bg-card border-card-border">
-            <CardHeader>
-              <CardTitle>My Tokens</CardTitle>
-              <CardDescription>Tokens owned by your wallet (first 50 scanned)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {(!account || myTokens.length === 0) ? (
-                <p className="text-muted-foreground">No tokens detected for your wallet in the scanned range.</p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {myTokens.map((t) => {
-                    const listed = activeListings.find(l => l.tokenId === t.tokenId);
-                    return (
-                      <div key={t.tokenId} className="p-3 rounded-lg border border-card-border bg-background">
-                        {t.image ? (
-                          <img src={t.image} alt={t.name || `#${t.tokenId}`} className="w-full h-24 object-cover rounded mb-2" />
-                        ) : (
-                          <div className="w-full h-24 rounded bg-muted mb-2" />
-                        )}
-                        <div className="font-medium mb-1 truncate">{t.name || `#${t.tokenId}`}</div>
-                        <div className="text-xs text-muted-foreground mb-2">#{t.tokenId}</div>
-                        {listed ? (
-                          <div className="text-xs text-muted-foreground">Already listed at {listed.priceEth} ETH</div>
-                        ) : (
-                          <Button size="sm" className="w-full" onClick={() => { setListTokenId(String(t.tokenId)); }}>
-                            List this Token
-                          </Button>
-                        )}
+                    <CardContent className="p-4">
+                      <div className="font-semibold truncate mb-1">{listing.name || `NFT #${listing.tokenId}`}</div>
+                      <div className="text-xs text-muted-foreground mb-2">
+                        by {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-lg font-bold text-primary">{listing.priceEth} ETH</div>
+                        <Button size="sm" onClick={() => handleBuyNFT(listing.tokenId, listing.priceEth)} disabled={loading || !isConnected}>
+                          Buy
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-        {filteredNFTs.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center">
-              <Search className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">No NFTs Found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search criteria or browse all NFTs.
-            </p>
-          </div>
-        )}
+          <TabsContent value="shares">
+            {loadingShares ? (
+              <div className="text-center py-12">
+                <Coins className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
+                <p className="text-muted-foreground">Loading shares...</p>
+              </div>
+            ) : filteredShares.length === 0 ? (
+              <div className="text-center py-12">
+                <Coins className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Shares Listed</h3>
+                <Button onClick={() => navigate("/sell")}>List Your Shares</Button>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {filteredShares.map((listing) => (
+                  <Card key={listing.listingId} className="bg-card border-card-border">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col lg:flex-row gap-4">
+                        {listing.nftImage ? (
+                          <img src={listing.nftImage} className="w-24 h-24 rounded-lg object-cover" />
+                        ) : (
+                          <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center">
+                            <Coins className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold">{listing.tokenName || "Fraction Shares"}</span>
+                            <Badge variant="secondary">{listing.tokenSymbol}</Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground mb-2">{listing.nftName}</div>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <div className="text-muted-foreground">Available</div>
+                              <div className="font-semibold">{parseFloat(listing.amount).toLocaleString()} shares</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Price/Share</div>
+                              <div className="font-semibold">{listing.pricePerShare} ETH</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Total Value</div>
+                              <div className="font-semibold text-primary">{listing.totalPrice} ETH</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 min-w-[200px]">
+                          <Input
+                            placeholder={`Max: ${listing.amount}`}
+                            value={buyAmount[listing.listingId] || ""}
+                            onChange={(e) => setBuyAmount({ ...buyAmount, [listing.listingId]: e.target.value })}
+                            type="number"
+                            max={listing.amount}
+                          />
+                          <div className="text-xs text-muted-foreground text-center">
+                            Cost: {((parseFloat(buyAmount[listing.listingId] || listing.amount)) * parseFloat(listing.pricePerShare)).toFixed(4)} ETH
+                          </div>
+                          <Button
+                            onClick={() => handleBuyShares(listing.listingId, listing.pricePerShare, listing.amount)}
+                            disabled={loading || !isConnected}
+                          >
+                            Buy Shares
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

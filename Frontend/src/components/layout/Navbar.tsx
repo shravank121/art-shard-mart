@@ -35,7 +35,9 @@ const Navbar = () => {
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "Marketplace", path: "/marketplace" },
-    { name: "Mint NFT", path: "/mint" },
+    { name: "Sell", path: "/sell" },
+    { name: "Fractionalize", path: "/fractionalize" },
+    { name: "Mint", path: "/mint" },
     { name: "Dashboard", path: "/dashboard" },
   ];
 
