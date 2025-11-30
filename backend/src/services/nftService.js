@@ -110,13 +110,40 @@ export const startEventLogging = async () => {
 export const fetchAllNFTs = async () => {
   try {
     if (!CONTRACT_ADDRESS) throw new Error('CONTRACT_ADDRESS not set');
-    const ERC721_MIN_ABI = [
+    const ERC721_ABI = [
       'function ownerOf(uint256 tokenId) view returns (address)',
-      'function tokenURI(uint256 tokenId) view returns (string)'
+      'function tokenURI(uint256 tokenId) view returns (string)',
+      'function totalSupply() view returns (uint256)'
     ];
-    const readOnly = new ethers.Contract(CONTRACT_ADDRESS, ERC721_MIN_ABI, provider);
+    const readOnly = new ethers.Contract(CONTRACT_ADDRESS, ERC721_ABI, provider);
 
-    // Discover tokenIds by scanning Transfer logs
+    // Try to get total supply first for efficient querying
+    let maxTokenId = 0;
+    try {
+      const supply = await readOnly.totalSupply();
+      maxTokenId = Number(supply);
+      console.log(`[nfts] Total supply: ${maxTokenId}`);
+    } catch {
+      console.log('[nfts] totalSupply not available, falling back to event scanning');
+    }
+
+    if (maxTokenId > 0) {
+      // Use totalSupply for efficient parallel fetching
+      const tokenIds = Array.from({ length: maxTokenId }, (_, i) => i + 1);
+      const results = await Promise.all(
+        tokenIds.map(async (id) => {
+          let owner = '';
+          let uri = '';
+          try { owner = await readOnly.ownerOf(id); } catch {}
+          try { uri = await readOnly.tokenURI(id); } catch {}
+          return { id: String(id), name: '', owner: owner || '', uri: uri || '' };
+        })
+      );
+      console.log(`[nfts] Fetched ${results.length} tokens via totalSupply`);
+      return results.filter(r => r.owner); // Only return tokens with valid owners
+    }
+
+    // Fallback: Discover tokenIds by scanning Transfer logs
     const fromBlockEnv = process.env.DEPLOY_BLOCK ? Number(process.env.DEPLOY_BLOCK) : 0;
     const fromBlock = Number.isFinite(fromBlockEnv) && fromBlockEnv > 0 ? fromBlockEnv : 0;
     const latest = await provider.getBlockNumber();
@@ -126,7 +153,6 @@ export const fetchAllNFTs = async () => {
     ], provider);
     const transferFilter = evReadOnly.filters.Transfer?.() ?? { address: CONTRACT_ADDRESS, topics: [ethers.id('Transfer(address,address,uint256)')] };
     const events = await evReadOnly.queryFilter(transferFilter, fromBlock, latest).catch(async () => {
-      // Fallback to provider.getLogs if queryFilter is not supported
       return (await provider.getLogs({ address: CONTRACT_ADDRESS, topics: [ethers.id('Transfer(address,address,uint256)')], fromBlock, toBlock: latest }))
         .map(l => ({ args: { tokenId: l.topics?.[3] ? BigInt(l.topics[3]).toString() : null } }));
     });
@@ -139,38 +165,22 @@ export const fetchAllNFTs = async () => {
       } catch {}
     }
 
-    // Resolve current owner and tokenURI for each tokenId
+    // Resolve current owner and tokenURI for each tokenId in parallel
     const ids = Array.from(tokenIdSet.values());
     ids.sort((a, b) => BigInt(a) > BigInt(b) ? 1 : -1);
     console.log(`[nfts] Unique tokenIds discovered: ${ids.length}`);
-    const results = [];
-    for (const id of ids) {
-      let owner = '';
-      let uri = '';
-      try { owner = await readOnly.ownerOf(id); } catch {}
-      try { uri = await readOnly.tokenURI(id); } catch {}
-      results.push({ id, name: '', owner: owner || '', uri: uri || '' });
-    }
+    
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        let owner = '';
+        let uri = '';
+        try { owner = await readOnly.ownerOf(id); } catch {}
+        try { uri = await readOnly.tokenURI(id); } catch {}
+        return { id, name: '', owner: owner || '', uri: uri || '' };
+      })
+    );
 
-    // Fallback: if no logs (or nothing resolved), probe token IDs 0..200 defensively
-    if (results.length === 0) {
-      console.log('[nfts] No results from logs; probing token IDs 0..200 as fallback');
-      for (let i = 0; i <= 200; i++) {
-        const id = String(i);
-        try {
-          const [owner, uri] = await Promise.all([
-            readOnly.ownerOf(id),
-            readOnly.tokenURI(id),
-          ]);
-          results.push({ id, name: '', owner: owner || '', uri: uri || '' });
-        } catch (e) {
-          // ignore holes; uncomment to debug specific failures
-          // console.log(`[nfts] probe id=${id} failed:`, e?.message || e);
-        }
-      }
-      console.log(`[nfts] Fallback discovered tokens: ${results.length}`);
-    }
-    return results;
+    return results.filter(r => r.owner);
   } catch (error) {
     errorLogger('Fetch all NFTs error', error);
     throw error;

@@ -26,6 +26,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
 
+      // Use wallet_requestPermissions to force MetaMask to show account selector
+      await window.ethereum.request({
+        method: 'wallet_requestPermissions',
+        params: [{ eth_accounts: {} }],
+      });
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const accounts = await provider.send('eth_requestAccounts', []);
       const signer = await provider.getSigner();
@@ -44,11 +50,25 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const disconnectWallet = () => {
+  const disconnectWallet = async () => {
     setAccount(null);
     setChainId(null);
     setProvider(null);
     setSigner(null);
+    
+    // Revoke permissions so next connect will prompt for account selection
+    if (window.ethereum) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_revokePermissions',
+          params: [{ eth_accounts: {} }],
+        });
+      } catch (error) {
+        // wallet_revokePermissions may not be supported in all wallets
+        console.log('Could not revoke permissions:', error);
+      }
+    }
+    
     console.log('👋 Wallet disconnected');
   };
 

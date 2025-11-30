@@ -14,7 +14,7 @@ import { ethers } from "ethers";
 import { apiUploadToIPFS } from "@/lib/api";
 
 // Contract details
-const CONTRACT_ADDRESS = "0x941b12780a04968844668332c915aC2F246E0c7B";
+const CONTRACT_ADDRESS = "0x09B462b7ECC3bfF4784Ee6172762992780bCc9d4";
 const CONTRACT_ABI = [
   "function mint(address to, string memory tokenURI_) external returns (uint256)"
 ];
