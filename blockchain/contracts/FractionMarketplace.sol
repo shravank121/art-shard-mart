@@ -89,7 +89,9 @@ contract FractionMarketplace is ReentrancyGuard, Ownable {
         require(listing.isActive, "listing not active");
         require(amount > 0 && amount <= listing.amount, "invalid amount");
 
-        uint256 totalPrice = amount * listing.pricePerShare;
+        // amount is in token wei (18 decimals), pricePerShare is in ETH wei
+        // totalPrice = (amount * pricePerShare) / 10^18
+        uint256 totalPrice = (amount * listing.pricePerShare) / 1e18;
         require(msg.value >= totalPrice, "insufficient payment");
 
         // Update listing

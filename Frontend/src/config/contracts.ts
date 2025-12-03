@@ -56,7 +56,7 @@ export const FRACTION_TOKEN_ABI = [
 
 export const SEPOLIA_FRACTION_MARKETPLACE_ADDRESS =
   (import.meta as any).env?.VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS ||
-  "0x0c6210d62747D81b9d09756F9db9775070d11665";
+  "0xAacC463c98fA9635eC82467fCf04e32d2e88C0Ba";
 
 export const FRACTION_MARKETPLACE_ABI = [
   "function listShares(address fractionToken, uint256 amount, uint256 pricePerShare) returns (uint256)",

@@ -53,3 +53,17 @@ export const loginUser = async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 };
+
+// Get platform stats (user count)
+export const getStats = async (req, res) => {
+  try {
+    const userCount = await User.countDocuments();
+    res.status(200).json({
+      userCount,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    errorLogger('Get stats error', error);
+    res.status(500).json({ error: 'Failed to get stats', userCount: 0 });
+  }
+};

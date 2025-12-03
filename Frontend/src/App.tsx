@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WalletProvider } from "./contexts/WalletContext";
+import { DataProvider } from "./contexts/DataContext";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import Home from "./pages/Home";
@@ -31,6 +32,7 @@ const App = () => (
     >
       <TooltipProvider>
         <WalletProvider>
+          <DataProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -55,6 +57,7 @@ const App = () => (
           <Footer />
         </div>
       </BrowserRouter>
+          </DataProvider>
         </WalletProvider>
       </TooltipProvider>
     </ThemeProvider>

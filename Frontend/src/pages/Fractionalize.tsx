@@ -336,7 +336,7 @@ const Fractionalize = () => {
                   <div>
                     <Label>Fraction Token Symbol</Label>
                     <Input
-                      placeholder="e.g., FART1"
+                      placeholder="e.g., ART1"
                       value={fractionSymbol}
                       onChange={(e) => setFractionSymbol(e.target.value)}
                     />

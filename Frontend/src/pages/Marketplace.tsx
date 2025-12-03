@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,45 +6,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, ShoppingBag, Tag, Coins, Image } from "lucide-react";
+import { Search, ShoppingBag, Tag, Coins, Image, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/contexts/WalletContext";
+import { useData } from "@/contexts/DataContext";
 import { ethers } from "ethers";
 import {
   SEPOLIA_NFT_ADDRESS,
   SEPOLIA_MARKETPLACE_ADDRESS,
-  SEPOLIA_FRACTIONALIZE_ADDRESS,
   SEPOLIA_FRACTION_MARKETPLACE_ADDRESS,
-  NFT_ABI,
   MARKETPLACE_ABI,
-  FRACTIONALIZE_ABI,
-  FRACTION_TOKEN_ABI,
   FRACTION_MARKETPLACE_ABI,
 } from "@/config/contracts";
-
-const SEPOLIA_RPC = "https://sepolia.infura.io/v3/bef97c7d99a241579f118d6b1bb576bd";
-
-interface NFTListing {
-  tokenId: number;
-  seller: string;
-  priceEth: string;
-  name?: string;
-  image?: string;
-}
-
-interface ShareListing {
-  listingId: number;
-  seller: string;
-  fractionToken: string;
-  amount: string;
-  pricePerShare: string;
-  totalPrice: string;
-  tokenName?: string;
-  tokenSymbol?: string;
-  nftImage?: string;
-  nftName?: string;
-  vaultId?: number;
-}
 
 const Marketplace = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,175 +25,58 @@ const Marketplace = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signer, account, isConnected } = useWallet();
+  const { nftListings, shareListings, loadingMarketplace, marketplaceLastUpdated, refreshMarketplace } = useData();
 
   const [loading, setLoading] = useState(false);
-  const [loadingNFTs, setLoadingNFTs] = useState(true);
-  const [loadingShares, setLoadingShares] = useState(true);
-  const [nftListings, setNftListings] = useState<NFTListing[]>([]);
-  const [shareListings, setShareListings] = useState<ShareListing[]>([]);
   const [buyAmount, setBuyAmount] = useState<{ [key: number]: string }>({});
 
-  const getReadOnlyProvider = () => new ethers.JsonRpcProvider(SEPOLIA_RPC);
-
-  const resolveIpfs = (uri?: string) => {
-    if (!uri) return "";
-    if (uri.startsWith("ipfs://")) return `https://ipfs.io/ipfs/${uri.replace("ipfs://", "")}`;
-    return uri;
-  };
-
-  // Load NFT listings
-  const loadNFTListings = async () => {
-    if (!SEPOLIA_MARKETPLACE_ADDRESS) {
-      setLoadingNFTs(false);
-      return;
-    }
-    try {
-      setLoadingNFTs(true);
-      const provider = getReadOnlyProvider();
-      const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, provider);
-      const market = new ethers.Contract(SEPOLIA_MARKETPLACE_ADDRESS, MARKETPLACE_ABI, provider);
-
-      let maxTokenId = 50;
-      try {
-        const supply = await nft.totalSupply();
-        maxTokenId = Math.min(Number(supply), 100);
-      } catch {}
-
-      if (maxTokenId === 0) {
-        setNftListings([]);
-        return;
-      }
-
-      const tokenIds = Array.from({ length: maxTokenId }, (_, i) => i + 1);
-      const results = await Promise.allSettled(
-        tokenIds.map(async (tokenId) => {
-          const listing = await market.getListing(SEPOLIA_NFT_ADDRESS, tokenId);
-          return { tokenId, listing };
-        })
-      );
-
-      const active: NFTListing[] = [];
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value.listing.isActive) {
-          const { tokenId, listing } = result.value;
-          let name: string | undefined, image: string | undefined;
-          try {
-            const uri = await nft.tokenURI(tokenId);
-            const res = await fetch(resolveIpfs(uri));
-            const meta = await res.json();
-            name = meta?.name;
-            image = resolveIpfs(meta?.image || meta?.image_url);
-          } catch {}
-          active.push({ tokenId, seller: listing.seller, priceEth: ethers.formatEther(listing.price), name, image });
-        }
-      }
-
-      if (sortBy === "price-low") active.sort((a, b) => parseFloat(a.priceEth) - parseFloat(b.priceEth));
-      else if (sortBy === "price-high") active.sort((a, b) => parseFloat(b.priceEth) - parseFloat(a.priceEth));
-
-      setNftListings(active);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingNFTs(false);
-    }
-  };
-
-  // Load share listings
-  const loadShareListings = async () => {
-    if (!SEPOLIA_FRACTION_MARKETPLACE_ADDRESS) {
-      setLoadingShares(false);
-      return;
-    }
-    try {
-      setLoadingShares(true);
-      const provider = getReadOnlyProvider();
-      const fracMarket = new ethers.Contract(SEPOLIA_FRACTION_MARKETPLACE_ADDRESS, FRACTION_MARKETPLACE_ABI, provider);
-      const frac = new ethers.Contract(SEPOLIA_FRACTIONALIZE_ADDRESS, FRACTIONALIZE_ABI, provider);
-      const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, provider);
-
-      const count = await fracMarket.listingCount();
-      const active: ShareListing[] = [];
-
-      for (let i = 1; i <= Number(count); i++) {
-        try {
-          const [seller, fractionToken, amount, pricePerShare, isActive] = await fracMarket.getListing(i);
-          if (!isActive || amount === 0n) continue;
-
-          const amountStr = ethers.formatUnits(amount, 18);
-          const priceStr = ethers.formatEther(pricePerShare);
-          const totalPrice = (parseFloat(amountStr) * parseFloat(priceStr)).toFixed(4);
-
-          let tokenName = "", tokenSymbol = "", nftImage = "", nftName = "", vaultId = 0;
-
-          try {
-            const token = new ethers.Contract(fractionToken, FRACTION_TOKEN_ABI, provider);
-            tokenName = await token.name();
-            tokenSymbol = await token.symbol();
-          } catch {}
-
-          // Find vault for this fraction token
-          try {
-            const vaultCount = await frac.vaultCount();
-            for (let v = 1; v <= Number(vaultCount); v++) {
-              const vault = await frac.getVault(v);
-              if (vault.fractionToken.toLowerCase() === fractionToken.toLowerCase()) {
-                vaultId = v;
-                try {
-                  const uri = await nft.tokenURI(vault.tokenId);
-                  const res = await fetch(resolveIpfs(uri));
-                  const meta = await res.json();
-                  nftName = meta?.name || `NFT #${vault.tokenId}`;
-                  nftImage = resolveIpfs(meta?.image || meta?.image_url);
-                } catch {}
-                break;
-              }
-            }
-          } catch {}
-
-          active.push({
-            listingId: i,
-            seller,
-            fractionToken,
-            amount: amountStr,
-            pricePerShare: priceStr,
-            totalPrice,
-            tokenName,
-            tokenSymbol,
-            nftImage,
-            nftName,
-            vaultId,
-          });
-        } catch {}
-      }
-
-      setShareListings(active);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingShares(false);
-    }
-  };
-
+  // Load marketplace data on mount if not cached
   useEffect(() => {
-    loadNFTListings();
-    loadShareListings();
-  }, [sortBy]);
+    if (!marketplaceLastUpdated) {
+      refreshMarketplace();
+    }
+  }, []);
+
+  // Sort NFT listings based on sortBy
+  const sortedNftListings = useMemo(() => {
+    const sorted = [...nftListings];
+    if (sortBy === "price-low") sorted.sort((a, b) => parseFloat(a.priceEth) - parseFloat(b.priceEth));
+    else if (sortBy === "price-high") sorted.sort((a, b) => parseFloat(b.priceEth) - parseFloat(a.priceEth));
+    return sorted;
+  }, [nftListings, sortBy]);
+
+  // Sort share listings based on sortBy (by price per share)
+  const sortedShareListings = useMemo(() => {
+    const sorted = [...shareListings];
+    if (sortBy === "price-low") sorted.sort((a, b) => parseFloat(a.pricePerShare) - parseFloat(b.pricePerShare));
+    else if (sortBy === "price-high") sorted.sort((a, b) => parseFloat(b.pricePerShare) - parseFloat(a.pricePerShare));
+    return sorted;
+  }, [shareListings, sortBy]);
 
   const handleBuyNFT = async (tokenId: number, priceEth: string) => {
     if (!isConnected || !signer) {
-      toast({ title: "Connect wallet", variant: "destructive" });
+      toast({ title: "Connect wallet to buy", variant: "destructive" });
       return;
     }
     try {
       setLoading(true);
+      console.log("Buying NFT:", { tokenId, priceEth, marketplace: SEPOLIA_MARKETPLACE_ADDRESS });
+      
       const market = new ethers.Contract(SEPOLIA_MARKETPLACE_ADDRESS, MARKETPLACE_ABI, signer);
-      const tx = await market.buyItem(SEPOLIA_NFT_ADDRESS, tokenId, { value: ethers.parseEther(priceEth) });
+      const priceWei = ethers.parseEther(priceEth);
+      
+      console.log("Sending transaction with value:", priceWei.toString());
+      const tx = await market.buyItem(SEPOLIA_NFT_ADDRESS, tokenId, { value: priceWei });
+      
+      toast({ title: "Transaction submitted", description: "Waiting for confirmation..." });
       await tx.wait();
+      
       toast({ title: "Purchase successful! 🎉", description: `You now own Token #${tokenId}` });
-      loadNFTListings();
+      refreshMarketplace(); // Refresh cached data
     } catch (e: any) {
-      toast({ title: "Purchase failed", description: e?.shortMessage || e?.message, variant: "destructive" });
+      console.error("Buy NFT error:", e);
+      const errorMsg = e?.reason || e?.shortMessage || e?.message || "Unknown error";
+      toast({ title: "Purchase failed", description: errorMsg, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -231,32 +87,84 @@ const Marketplace = () => {
       toast({ title: "Connect wallet", variant: "destructive" });
       return;
     }
-    const amount = buyAmount[listingId] || maxAmount;
+    const amount = buyAmount[listingId];
     if (!amount || parseFloat(amount) <= 0) {
       toast({ title: "Enter amount to buy", variant: "destructive" });
+      return;
+    }
+    if (parseFloat(amount) > parseFloat(maxAmount)) {
+      toast({ title: "Amount exceeds available shares", variant: "destructive" });
       return;
     }
     try {
       setLoading(true);
       const fracMarket = new ethers.Contract(SEPOLIA_FRACTION_MARKETPLACE_ADDRESS, FRACTION_MARKETPLACE_ABI, signer);
+      
+      // First, get the actual listing from contract to ensure correct price
+      const listing = await fracMarket.getListing(listingId);
+      const contractPricePerShare = listing[3]; // pricePerShare is 4th element
+      console.log("Contract listing data:", {
+        seller: listing[0],
+        fractionToken: listing[1],
+        amount: listing[2].toString(),
+        pricePerShare: contractPricePerShare.toString(),
+        isActive: listing[4]
+      });
+      
+      // Convert amount to wei (18 decimals for ERC20)
       const amountWei = ethers.parseUnits(amount, 18);
-      const totalPrice = ethers.parseEther((parseFloat(amount) * parseFloat(pricePerShare)).toString());
-      const tx = await fracMarket.buyShares(listingId, amountWei, { value: totalPrice });
+      
+      // Calculate total price using contract's pricePerShare directly
+      // Contract formula: totalPrice = (amount * pricePerShare) / 1e18
+      // Do multiplication first to avoid precision loss
+      const numerator = amountWei * contractPricePerShare;
+      const denominator = ethers.parseUnits("1", 18);
+      const totalPriceWei = numerator / denominator;
+      
+      // Add 2% buffer for rounding to be safe, minimum 1000 wei
+      const buffer = totalPriceWei / 50n; // 2%
+      const minBuffer = 1000n;
+      const totalPriceWithBuffer = totalPriceWei + (buffer > minBuffer ? buffer : minBuffer);
+      
+      console.log("Buying shares:", { 
+        listingId, 
+        amount, 
+        amountWei: amountWei.toString(),
+        contractPricePerShare: contractPricePerShare.toString(),
+        totalPriceWei: totalPriceWei.toString(),
+        totalPriceWithBuffer: totalPriceWithBuffer.toString(),
+        totalPriceEth: ethers.formatEther(totalPriceWithBuffer)
+      });
+      
+      // Ensure we're sending ETH with the transaction
+      console.log("Sending transaction with value:", totalPriceWithBuffer.toString(), "wei =", ethers.formatEther(totalPriceWithBuffer), "ETH");
+      
+      // Encode the function call data
+      const iface = new ethers.Interface(FRACTION_MARKETPLACE_ABI);
+      const data = iface.encodeFunctionData("buyShares", [listingId, amountWei]);
+      
+      // Send raw transaction with explicit value
+      const tx = await signer.sendTransaction({
+        to: SEPOLIA_FRACTION_MARKETPLACE_ADDRESS,
+        data: data,
+        value: totalPriceWithBuffer,
+      });
       await tx.wait();
       toast({ title: "Shares purchased! 🎉", description: `Bought ${amount} shares` });
-      loadShareListings();
+      refreshMarketplace(); // Refresh cached data
     } catch (e: any) {
+      console.error("Buy shares error:", e);
       toast({ title: "Purchase failed", description: e?.shortMessage || e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredNFTs = nftListings.filter(l =>
+  const filteredNFTs = sortedNftListings.filter(l =>
     l.name?.toLowerCase().includes(searchQuery.toLowerCase()) || `#${l.tokenId}`.includes(searchQuery)
   );
 
-  const filteredShares = shareListings.filter(l =>
+  const filteredShares = sortedShareListings.filter(l =>
     l.tokenName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     l.nftName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -271,10 +179,21 @@ const Marketplace = () => {
             </h1>
             <p className="text-muted-foreground">Buy NFTs or fraction shares from creators worldwide.</p>
           </div>
-          <Button onClick={() => navigate("/sell")} className="btn-neon">
-            <Tag className="w-4 h-4 mr-2" />
-            Sell Assets
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => refreshMarketplace()} 
+              disabled={loadingMarketplace}
+              className="border-card-border"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingMarketplace ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button onClick={() => navigate("/sell")} className="btn-neon">
+              <Tag className="w-4 h-4 mr-2" />
+              Sell Assets
+            </Button>
+          </div>
         </div>
 
         <div className="mb-8 flex flex-col sm:flex-row gap-4">
@@ -312,7 +231,7 @@ const Marketplace = () => {
           </TabsList>
 
           <TabsContent value="nfts">
-            {loadingNFTs ? (
+            {loadingMarketplace && nftListings.length === 0 ? (
               <div className="text-center py-12">
                 <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
                 <p className="text-muted-foreground">Loading NFTs...</p>
@@ -345,7 +264,7 @@ const Marketplace = () => {
                         by {listing.seller.slice(0, 6)}...{listing.seller.slice(-4)}
                       </div>
                       <div className="flex items-center justify-between">
-                        <div className="text-lg font-bold text-primary">{listing.priceEth} ETH</div>
+                        <div className="text-lg font-bold text-primary">{parseFloat(listing.priceEth).toFixed(6)} ETH</div>
                         <Button size="sm" onClick={() => handleBuyNFT(listing.tokenId, listing.priceEth)} disabled={loading || !isConnected}>
                           Buy
                         </Button>
@@ -358,7 +277,7 @@ const Marketplace = () => {
           </TabsContent>
 
           <TabsContent value="shares">
-            {loadingShares ? (
+            {loadingMarketplace && shareListings.length === 0 ? (
               <div className="text-center py-12">
                 <Coins className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
                 <p className="text-muted-foreground">Loading shares...</p>
@@ -395,7 +314,7 @@ const Marketplace = () => {
                             </div>
                             <div>
                               <div className="text-muted-foreground">Price/Share</div>
-                              <div className="font-semibold">{listing.pricePerShare} ETH</div>
+                              <div className="font-semibold">{parseFloat(listing.pricePerShare).toFixed(6)} ETH</div>
                             </div>
                             <div>
                               <div className="text-muted-foreground">Total Value</div>

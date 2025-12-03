@@ -1,15 +1,163 @@
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Sparkles, Users, Shield, TrendingUp, ArrowRight, Palette, Coins, Zap, Award, Globe, CheckCircle } from "lucide-react";
+import { ethers } from "ethers";
+import {
+  SEPOLIA_NFT_ADDRESS,
+  SEPOLIA_FRACTIONALIZE_ADDRESS,
+  SEPOLIA_FRACTION_MARKETPLACE_ADDRESS,
+  NFT_ABI,
+  FRACTIONALIZE_ABI,
+  FRACTION_MARKETPLACE_ABI,
+} from "@/config/contracts";
+
+// Animated counter hook
+const useCountUp = (end: number, duration: number = 2000, startOnView: boolean = true) => {
+  const [count, setCount] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!startOnView) {
+      setHasStarted(true);
+    }
+  }, [startOnView]);
+
+  useEffect(() => {
+    if (startOnView && ref.current) {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting && !hasStarted) {
+            setHasStarted(true);
+          }
+        },
+        { threshold: 0.1 }
+      );
+      observer.observe(ref.current);
+      return () => observer.disconnect();
+    }
+  }, [hasStarted, startOnView]);
+
+  useEffect(() => {
+    if (!hasStarted || end === 0) return;
+
+    const startTime = Date.now();
+    const startValue = 0;
+
+    const animate = () => {
+      const now = Date.now();
+      const progress = Math.min((now - startTime) / duration, 1);
+      // Easing function for smooth animation
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentValue = Math.floor(startValue + (end - startValue) * easeOut);
+      setCount(currentValue);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [end, duration, hasStarted]);
+
+  return { count, ref };
+};
+
+// Format number with commas
+const formatNumber = (num: number): string => {
+  return num.toLocaleString();
+};
 
 const Home = () => {
-  const stats = [
-    { label: "Total NFTs", value: "12,543", icon: Palette },
-    { label: "Artists", value: "2,891", icon: Users },
-    { label: "Volume Traded", value: "45,672 ETH", icon: TrendingUp },
-    { label: "Fractional Shares", value: "156,789", icon: Coins },
+  const [stats, setStats] = useState({
+    totalNFTs: 0,
+    totalVaults: 0,
+    totalListings: 0,
+    connectedWallets: 1, // At least the current user
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Load dynamic stats from blockchain and backend
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        // Fetch user count from backend API
+        let userCount = 1;
+        try {
+          const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+          const response = await fetch(`${apiUrl}/api/auth/stats`);
+          if (response.ok) {
+            const data = await response.json();
+            userCount = data.userCount || 1;
+          }
+        } catch {
+          console.log("Backend not available, using default user count");
+        }
+
+        // Fetch blockchain stats
+        let provider: ethers.Provider;
+        if (typeof window !== "undefined" && (window as any).ethereum) {
+          provider = new ethers.BrowserProvider((window as any).ethereum);
+        } else {
+          provider = new ethers.JsonRpcProvider("https://sepolia.infura.io/v3/bef97c7d99a241579f118d6b1bb576bd");
+        }
+
+        const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, provider);
+        
+        let totalNFTs = 0;
+        try {
+          const supply = await nft.totalSupply();
+          totalNFTs = Number(supply);
+        } catch {}
+
+        let totalVaults = 0;
+        if (SEPOLIA_FRACTIONALIZE_ADDRESS) {
+          try {
+            const frac = new ethers.Contract(SEPOLIA_FRACTIONALIZE_ADDRESS, FRACTIONALIZE_ABI, provider);
+            const vaultCount = await frac.vaultCount();
+            totalVaults = Number(vaultCount);
+          } catch {}
+        }
+
+        let totalListings = 0;
+        if (SEPOLIA_FRACTION_MARKETPLACE_ADDRESS) {
+          try {
+            const fracMarket = new ethers.Contract(SEPOLIA_FRACTION_MARKETPLACE_ADDRESS, FRACTION_MARKETPLACE_ABI, provider);
+            const listingCount = await fracMarket.listingCount();
+            totalListings = Number(listingCount);
+          } catch {}
+        }
+
+        setStats({
+          totalNFTs,
+          totalVaults,
+          totalListings,
+          connectedWallets: userCount,
+        });
+      } catch (e) {
+        console.error("Failed to load stats:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStats();
+  }, []);
+
+  // Animated counters
+  const nftCounter = useCountUp(stats.totalNFTs, 2000);
+  const vaultCounter = useCountUp(stats.totalVaults, 2000);
+  const listingCounter = useCountUp(stats.totalListings, 2000);
+  const userCounter = useCountUp(stats.connectedWallets, 2000);
+
+  const displayStats = [
+    { label: "Total NFTs Minted", value: formatNumber(nftCounter.count), icon: Palette, ref: nftCounter.ref },
+    { label: "Active Vaults", value: formatNumber(vaultCounter.count), icon: Coins, ref: vaultCounter.ref },
+    { label: "Share Listings", value: formatNumber(listingCounter.count), icon: TrendingUp, ref: listingCounter.ref },
+    { label: "Users", value: formatNumber(userCounter.count), icon: Users, ref: userCounter.ref },
   ];
 
   const features = [
@@ -116,15 +264,24 @@ const Home = () => {
       <section className="py-16 border-y border-card-border">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center fade-in-up" style={{animationDelay: `${index * 0.1}s`}}>
+            {displayStats.map((stat, index) => (
+              <div 
+                key={index} 
+                ref={stat.ref}
+                className="text-center fade-in-up" 
+                style={{animationDelay: `${index * 0.1}s`}}
+              >
                 <div className="flex justify-center mb-4">
                   <div className="w-12 h-12 rounded-lg gradient-primary flex items-center justify-center pulse-glow">
                     <stat.icon className="w-6 h-6 text-white" />
                   </div>
                 </div>
                 <div className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
-                  {stat.value}
+                  {loading ? (
+                    <span className="animate-pulse">...</span>
+                  ) : (
+                    stat.value
+                  )}
                 </div>
                 <div className="text-muted-foreground">{stat.label}</div>
               </div>

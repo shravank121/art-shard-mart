@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Tag, Wallet, Package, X, Coins, Image } from "lucide-react";
+import { Tag, Wallet, Package, Coins, Image, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/contexts/WalletContext";
+import { useData } from "@/contexts/DataContext";
 import { ethers } from "ethers";
 import {
   SEPOLIA_NFT_ADDRESS,
@@ -46,6 +47,7 @@ const SellNFT = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signer, account, isConnected } = useWallet();
+  const { myNFTs, myFractions: cachedFractions, loading: dataLoading, refreshData } = useData();
 
   const [loading, setLoading] = useState(false);
   const [sellType, setSellType] = useState<"nft" | "shares">("nft");
@@ -60,7 +62,7 @@ const SellNFT = () => {
   const [selectedFraction, setSelectedFraction] = useState<FractionHolding | null>(null);
   const [sharesToSell, setSharesToSell] = useState("");
   const [pricePerShare, setPricePerShare] = useState("");
-  const [myFractions, setMyFractions] = useState<FractionHolding[]>([]);
+  const [myFractionsLocal, setMyFractionsLocal] = useState<FractionHolding[]>([]);
 
   const resolveIpfs = (uri?: string) => {
     if (!uri) return "";
@@ -70,33 +72,30 @@ const SellNFT = () => {
     return uri;
   };
 
-  // Load NFTs
+  // Load NFT listing status (uses cached NFT data)
   const loadMyTokens = async () => {
-    if (!signer || !account) return;
+    if (!signer || !account || myNFTs.length === 0) {
+      // Use cached data directly if no signer
+      const tokens = myNFTs.map(n => ({
+        tokenId: n.id,
+        name: n.name,
+        image: n.image,
+        isListed: false,
+        listPrice: undefined,
+      }));
+      setMyTokens(tokens);
+      setMyNFTListings([]);
+      return;
+    }
+    
     try {
-      const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, signer);
       const market = new ethers.Contract(SEPOLIA_MARKETPLACE_ADDRESS, MARKETPLACE_ABI, signer);
       
-      let maxTokenId = 50;
-      try {
-        const supply = await nft.totalSupply();
-        maxTokenId = Math.min(Number(supply), 100);
-      } catch {}
-      
-      if (maxTokenId === 0) {
-        setMyTokens([]);
-        setMyNFTListings([]);
-        return;
-      }
-
-      const tokenIds = Array.from({ length: maxTokenId }, (_, i) => i + 1);
+      // Check listing status for cached NFTs
       const results = await Promise.allSettled(
-        tokenIds.map(async (tokenId) => {
-          const [owner, listing] = await Promise.all([
-            nft.ownerOf(tokenId),
-            market.getListing(SEPOLIA_NFT_ADDRESS, tokenId),
-          ]);
-          return { tokenId, owner, listing };
+        myNFTs.map(async (nft) => {
+          const listing = await market.getListing(SEPOLIA_NFT_ADDRESS, nft.id);
+          return { ...nft, listing };
         })
       );
 
@@ -105,37 +104,22 @@ const SellNFT = () => {
 
       for (const result of results) {
         if (result.status !== "fulfilled") continue;
-        const { tokenId, owner, listing } = result.value;
-        
-        const isOwner = owner?.toLowerCase() === account.toLowerCase();
+        const { id, name, image, listing } = result.value;
         const isListed = listing.isActive;
         const isSeller = listing.seller?.toLowerCase() === account.toLowerCase();
 
-        if (isOwner || isSeller) {
-          let name: string | undefined;
-          let image: string | undefined;
-          try {
-            const uri: string = await nft.tokenURI(tokenId);
-            const url = resolveIpfs(uri);
-            const res = await fetch(url);
-            const meta = await res.json();
-            name = meta?.name;
-            image = resolveIpfs(meta?.image || meta?.image_url);
-          } catch {}
+        const tokenInfo: TokenInfo = {
+          tokenId: id,
+          name,
+          image,
+          isListed,
+          listPrice: isListed ? ethers.formatEther(listing.price) : undefined,
+        };
 
-          const tokenInfo: TokenInfo = {
-            tokenId,
-            name,
-            image,
-            isListed,
-            listPrice: isListed ? ethers.formatEther(listing.price) : undefined,
-          };
-
-          if (isListed && isSeller) {
-            listed.push(tokenInfo);
-          } else if (isOwner && !isListed) {
-            owned.push(tokenInfo);
-          }
+        if (isListed && isSeller) {
+          listed.push(tokenInfo);
+        } else if (!isListed) {
+          owned.push(tokenInfo);
         }
       }
 
@@ -194,7 +178,7 @@ const SellNFT = () => {
           }
         } catch {}
       }
-      setMyFractions(holdings);
+      setMyFractionsLocal(holdings);
     } catch (e) {
       console.error(e);
     }
@@ -221,14 +205,16 @@ const SellNFT = () => {
       const nft = new ethers.Contract(SEPOLIA_NFT_ADDRESS, NFT_ABI, signer);
       const market = new ethers.Contract(SEPOLIA_MARKETPLACE_ADDRESS, MARKETPLACE_ABI, signer);
 
-      toast({ title: "Approving NFT transfer..." });
+      // Check if approval is needed
       const approved = await nft.getApproved(selectedToken.tokenId);
       if (approved.toLowerCase() !== SEPOLIA_MARKETPLACE_ADDRESS.toLowerCase()) {
+        toast({ title: "Step 1/2: Approving NFT", description: "Please confirm the approval transaction" });
         const txApprove = await nft.approve(SEPOLIA_MARKETPLACE_ADDRESS, selectedToken.tokenId);
         await txApprove.wait();
+        toast({ title: "Approval confirmed!" });
       }
 
-      toast({ title: "Listing NFT..." });
+      toast({ title: "Step 2/2: Listing NFT", description: "Please confirm the listing transaction" });
       const tx = await market.listItem(SEPOLIA_NFT_ADDRESS, selectedToken.tokenId, ethers.parseEther(listPriceEth));
       await tx.wait();
 
@@ -437,6 +423,9 @@ const SellNFT = () => {
                     <Button onClick={handleListNFT} disabled={loading || !selectedToken || !listPriceEth} className="w-full">
                       {loading ? "Processing..." : "List for Sale"}
                     </Button>
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      First-time listing requires 2 transactions: approval + listing
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -475,14 +464,14 @@ const SellNFT = () => {
                 <CardDescription>Choose which shares to sell</CardDescription>
               </CardHeader>
               <CardContent>
-                {myFractions.length === 0 ? (
+                {myFractionsLocal.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">No fraction shares owned</p>
                     <Button variant="outline" onClick={() => navigate("/fractionalize")}>Explore Fractions</Button>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {myFractions.map((frac) => (
+                    {myFractionsLocal.map((frac) => (
                       <div
                         key={frac.vaultId}
                         onClick={() => setSelectedFraction(frac)}
