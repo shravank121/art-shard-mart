@@ -225,32 +225,44 @@ This project report is organized into five chapters, each systematically present
 
 ## 2.3 Project Scheduling
 
-| Phase | Activity | Duration | Deliverables |
-|-------|----------|----------|--------------|
-| **Phase 1: Planning** | Requirements analysis and architecture design | 2 weeks | SRS document, system architecture |
-| | Technology stack selection and setup | 1 week | Development environment |
-| **Phase 2: Smart Contracts** | ERC-721 NFT contract development | 2 weeks | ArtShardNFT.sol |
-| | Marketplace contract development | 2 weeks | ArtShardMarketplace.sol |
-| | Fractionalization contract development | 3 weeks | ArtShardFractionalize.sol |
-| | Fraction marketplace contract | 2 weeks | FractionMarketplace.sol |
-| | Contract testing and deployment | 2 weeks | Deployed contracts on Sepolia |
-| **Phase 3: Backend** | Database schema design | 1 week | MongoDB collections |
-| | Authentication API development | 2 weeks | JWT-based auth system |
-| | NFT service integration | 2 weeks | Blockchain event listeners |
-| **Phase 4: Frontend** | UI/UX design and wireframing | 2 weeks | Figma mockups |
-| | Core page development | 4 weeks | Home, Marketplace, Dashboard |
-| | Wallet integration | 2 weeks | MetaMask connectivity |
-| | Fractionalization UI | 2 weeks | Fractionalize page |
-| | Trading interfaces | 2 weeks | Buy/Sell functionality |
-| **Phase 5: Integration** | Frontend-Backend integration | 2 weeks | API connectivity |
-| | Frontend-Blockchain integration | 2 weeks | Contract interactions |
-| | Caching implementation | 1 week | DataContext caching |
-| **Phase 6: Testing** | Unit testing | 2 weeks | Test coverage |
-| | Integration testing | 2 weeks | End-to-end flows |
-| | User acceptance testing | 1 week | Bug fixes |
-| **Phase 7: Deployment** | Production deployment | 1 week | Live application |
-| | Documentation | 2 weeks | User guides, technical docs |
-| **Total** | | **40 weeks** | Complete platform |
+**Project Timeline:** September 15, 2024 - December 1, 2024 (11 weeks)
+
+| Phase | Activity | Duration | Start Date | End Date | Deliverables |
+|-------|----------|----------|------------|----------|--------------|
+| **Phase 1: Planning & Setup** | Requirements analysis and architecture design | 3 days | Sep 15 | Sep 17 | SRS document, system architecture |
+| | Technology stack selection and environment setup | 2 days | Sep 18 | Sep 19 | Development environment ready |
+| **Phase 2: Smart Contracts** | ERC-721 NFT contract development | 4 days | Sep 20 | Sep 24 | ArtShardNFT.sol |
+| | Marketplace contract development | 4 days | Sep 25 | Sep 29 | ArtShardMarketplace.sol |
+| | Fractionalization contract development | 5 days | Sep 30 | Oct 5 | ArtShardFractionalize.sol |
+| | Fraction marketplace contract | 4 days | Oct 6 | Oct 10 | FractionMarketplace.sol |
+| | Contract testing and Sepolia deployment | 3 days | Oct 11 | Oct 14 | Deployed contracts |
+| **Phase 3: Backend** | Database schema and authentication API | 4 days | Oct 15 | Oct 19 | MongoDB + JWT auth |
+| | NFT service and blockchain integration | 3 days | Oct 20 | Oct 23 | Event listeners |
+| **Phase 4: Frontend** | UI/UX design and core pages | 5 days | Oct 24 | Oct 29 | Home, Dashboard wireframes |
+| | Marketplace and trading interfaces | 5 days | Oct 30 | Nov 4 | Marketplace, SellNFT pages |
+| | Wallet integration (MetaMask) | 3 days | Nov 5 | Nov 8 | WalletContext |
+| | Fractionalization UI | 4 days | Nov 9 | Nov 13 | Fractionalize page |
+| **Phase 5: Integration** | Frontend-Backend-Blockchain integration | 4 days | Nov 14 | Nov 18 | Full stack connectivity |
+| | Caching and performance optimization | 2 days | Nov 19 | Nov 20 | DataContext caching |
+| **Phase 6: Testing & Polish** | Integration testing and bug fixes | 4 days | Nov 21 | Nov 25 | Tested application |
+| | UI polish and final adjustments | 3 days | Nov 26 | Nov 28 | Polished UI |
+| **Phase 7: Documentation** | Project documentation and report | 2 days | Nov 29 | Dec 1 | Final documentation |
+| **Total** | | **11 weeks** | Sep 15 | Dec 1 | Complete platform |
+
+### Gantt Chart Overview
+
+```
+Week        |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |  9  | 10  | 11  |
+Date Range  |Sep15|Sep22|Sep29|Oct06|Oct13|Oct20|Oct27|Nov03|Nov10|Nov17|Nov24|
+------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|
+Planning    |████ |     |     |     |     |     |     |     |     |     |     |
+Contracts   |  ██ |█████|█████|█████|██   |     |     |     |     |     |     |
+Backend     |     |     |     |     |  ███|████ |     |     |     |     |     |
+Frontend    |     |     |     |     |     |   ██|█████|█████|█████|██   |     |
+Integration |     |     |     |     |     |     |     |     |    █|████ |     |
+Testing     |     |     |     |     |     |     |     |     |     |   ██|███  |
+Docs        |     |     |     |     |     |     |     |     |     |     |  ███|
+```
 
 ## 2.4 System Architecture
 

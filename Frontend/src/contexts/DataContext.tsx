@@ -362,12 +362,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (account) {
       loadData(true);
     }
-  }, [account, loadData]);
+  }, [account]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load marketplace on mount and when account changes
+  // Load marketplace on mount only
   useEffect(() => {
     loadMarketplace(true);
-  }, [loadMarketplace]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshData = useCallback(() => loadData(true), [loadData]);
   const refreshMarketplace = useCallback(() => loadMarketplace(true), [loadMarketplace]);

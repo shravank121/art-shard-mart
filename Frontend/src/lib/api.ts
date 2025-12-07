@@ -71,3 +71,39 @@ export async function apiUploadToIPFS(params: {
   if (!res.ok) throw new Error(data?.error || 'Failed to upload to IPFS');
   return data as { imageCID: string; imageURI: string; metadataCID: string; metadataURI: string };
 }
+
+// Wallet API functions
+export async function apiConnectWallet(walletAddress: string) {
+  const res = await fetch(`${API_URL}/api/auth/wallet/connect`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ walletAddress })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to connect wallet');
+  return data as { message: string; walletCount: number; wallets: Array<{ address: string; connectedAt: string; lastUsed: string }> };
+}
+
+export async function apiGetConnectedWallets() {
+  const res = await fetch(`${API_URL}/api/auth/wallet`, {
+    headers: authHeaders()
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to get wallets');
+  return data as { walletCount: number; wallets: Array<{ address: string; connectedAt: string; lastUsed: string }> };
+}
+
+export async function apiDisconnectWallet(walletAddress: string) {
+  const res = await fetch(`${API_URL}/api/auth/wallet/disconnect`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ walletAddress })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Failed to disconnect wallet');
+  return data as { message: string; walletCount: number; wallets: Array<{ address: string; connectedAt: string; lastUsed: string }> };
+}
+
+export function isLoggedIn(): boolean {
+  return Boolean(localStorage.getItem('token'));
+}

@@ -270,26 +270,6 @@ const Fractionalize = () => {
     }
   };
 
-  const handleBuyout = async (vaultId: number, reservePrice: string) => {
-    if (!isConnected || !signer) {
-      toast({ title: "Connect wallet", variant: "destructive" });
-      return;
-    }
-    try {
-      setLoading(true);
-      const { frac } = contracts();
-      const tx = await frac.buyout(vaultId, { value: ethers.parseEther(reservePrice) });
-      await tx.wait();
-      toast({ title: "Buyout successful!", description: "NFT transferred to your wallet" });
-      loadVaults();
-      loadMyTokens();
-    } catch (e: any) {
-      toast({ title: "Buyout failed", description: e?.shortMessage || e?.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen py-8">
       <div className="container mx-auto px-4">
@@ -482,15 +462,6 @@ const Fractionalize = () => {
                           {parseFloat(vault.myBalance || "0") >= parseFloat(vault.totalShares) - 0.000001 && (
                             <Button onClick={() => handleRedeem(vault.vaultId)} disabled={loading} className="bg-green-600 hover:bg-green-700">
                               🔓 Redeem NFT (You own 100%)
-                            </Button>
-                          )}
-                          {parseFloat(vault.myBalance || "0") < parseFloat(vault.totalShares) - 0.000001 && (
-                            <Button
-                              variant="outline"
-                              onClick={() => handleBuyout(vault.vaultId, vault.reservePrice)}
-                              disabled={loading}
-                            >
-                              Buyout ({vault.reservePrice} ETH)
                             </Button>
                           )}
                         </div>

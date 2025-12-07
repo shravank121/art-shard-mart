@@ -43,3 +43,25 @@ WALLET_INTEGRATION.md
 blockchain/.env
 
 page3_edai.txt
+
+# Documentation files (not needed in repo)
+*.docx
+*.zip
+*.txt
+page3_edai.docx
+
+# Project report and diagram files
+Annexure_4_Chapter Format.docx
+Annexure_4_Chapter Format.zip
+Annexure_4_Chapter Format.md
+ANNEXURE_4_PROJECT_REPORT.md
+CHAPTER_4_RESULTS_DISCUSSION.md
+DIAGRAMS_MERMAID.md
+DIAGRAMS_CLEAN.md
+ER_DIAGRAM.md
+PROJECT_REPORT.md
+FRONTEND_MINTING_GUIDE.md
+TESTING_GUIDE.md
+DOCKER_SETUP.md
+setup-testnet.md
+update-backend-env.txt

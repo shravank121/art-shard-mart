@@ -1,9 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import { Wallet } from "lucide-react";
 
 const WalletButton = () => {
   const { account, isConnected, connectWallet, disconnectWallet, chainId } = useWallet();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const getChainName = (id: number | null) => {
     if (!id) return "";
@@ -21,6 +25,27 @@ const WalletButton = () => {
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const handleConnect = async () => {
+    const result = await connectWallet();
+    
+    if (result.requiresLogin) {
+      toast({
+        title: "Login Required",
+        description: "Please login to connect your wallet.",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    if (result.success) {
+      toast({
+        title: "Wallet Connected",
+        description: "Your wallet has been connected and saved to your account.",
+      });
+    }
   };
 
   if (isConnected && account) {
@@ -46,7 +71,7 @@ const WalletButton = () => {
 
   return (
     <Button
-      onClick={connectWallet}
+      onClick={handleConnect}
       size="sm"
       className="btn-neon"
     >
