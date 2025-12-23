@@ -14,7 +14,7 @@ import {
 } from "@/config/contracts";
 
 // Fallback RPC endpoint (only used if MetaMask not available)
-const FALLBACK_RPC = "https://sepolia.infura.io/v3/bef97c7d99a241579f118d6b1bb576bd";
+const FALLBACK_RPC = import.meta.env.VITE_RPC_URL || "https://sepolia.infura.io/v3/YOUR_INFURA_KEY";
 
 const CACHE_DURATION = 180000; // 3 minute cache to reduce calls
 

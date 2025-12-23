@@ -46,9 +46,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Register wallet connection in backend
       try {
         await apiConnectWallet(accounts[0]);
-        console.log('✅ Wallet registered in database');
       } catch (apiError) {
-        console.error('Failed to register wallet in backend:', apiError);
         // Continue anyway - wallet is connected locally
       }
 
@@ -57,8 +55,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setAccount(accounts[0]);
       setChainId(Number(network.chainId));
 
-      console.log('✅ Wallet connected:', accounts[0]);
-      console.log('🌐 Chain ID:', network.chainId);
       return { success: true };
     } catch (error: any) {
       console.error('Failed to connect wallet:', error);
@@ -84,13 +80,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           method: "wallet_revokePermissions",
           params: [{ eth_accounts: {} }],
         });
-      } catch (error) {
+      } catch {
         // wallet_revokePermissions may not be supported in all wallets
-        console.log("Could not revoke permissions:", error);
       }
     }
-
-    console.log("👋 Wallet disconnected (session only, kept in history)");
   };
 
   // Listen for account changes
@@ -102,17 +95,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setChainId(null);
         setProvider(null);
         setSigner(null);
-        console.log("👋 Wallet disconnected (external)");
       } else {
         setAccount(accounts[0]);
-        console.log("🔄 Account changed:", accounts[0]);
       }
     };
 
     const handleChainChanged = (chainIdHex: string) => {
       const newChainId = parseInt(chainIdHex, 16);
       setChainId(newChainId);
-      console.log("🔄 Chain changed:", newChainId);
     };
 
     if (window.ethereum) {
@@ -149,11 +139,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setSigner(signer);
             setAccount(accounts[0]);
             setChainId(Number(network.chainId));
-            // Don't call API on auto-reconnect to avoid spam
-            // The wallet is already registered from initial connect
           }
-        } catch (error) {
-          console.error("Error checking wallet connection:", error);
+        } catch {
+          // Silently fail on auto-reconnect check
         }
       }
     };

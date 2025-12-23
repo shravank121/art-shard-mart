@@ -9,6 +9,7 @@ services:
     ports:
       - "4000:4000"
     environment:
+      - NODE_ENV=production
       - PORT=4000
       - MONGO_URI=${MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
@@ -17,9 +18,16 @@ services:
       - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
       - PINATA_JWT=${PINATA_JWT}
       - DEPLOY_BLOCK=${DEPLOY_BLOCK:-0}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
     restart: unless-stopped
     networks:
       - artshard-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     build:
@@ -28,11 +36,15 @@ services:
       args:
         - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
         - VITE_SEPOLIA_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_MARKETPLACE_ADDRESS}
+        - VITE_SEPOLIA_FRACTIONALIZE_ADDRESS=${VITE_SEPOLIA_FRACTIONALIZE_ADDRESS}
+        - VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS}
+        - VITE_RPC_URL=${VITE_RPC_URL}
     container_name: artshard-frontend
     ports:
       - "3000:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - artshard-network
