@@ -18,6 +18,7 @@
     "nodemon": "^3.1.10"
   },
   "scripts": {
-    "dev": "concurrently -k -n backend,frontend -c \"bgBlue.bold\",\"bgMagenta.bold\" \"npm --prefix backend run dev\" \"npm --prefix Frontend run dev\""
+    "dev": "concurrently -k -n backend,frontend -c \"bgBlue.bold\",\"bgMagenta.bold\" \"npm --prefix backend run dev\" \"npm --prefix Frontend run dev\"",
+    "build": "npm --prefix Frontend run build"
   }
 }
