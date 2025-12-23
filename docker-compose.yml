@@ -35,10 +35,10 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
+        - VITE_RPC_URL=${VITE_RPC_URL}
         - VITE_SEPOLIA_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_MARKETPLACE_ADDRESS}
         - VITE_SEPOLIA_FRACTIONALIZE_ADDRESS=${VITE_SEPOLIA_FRACTIONALIZE_ADDRESS}
         - VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS}
-        - VITE_RPC_URL=${VITE_RPC_URL}
     container_name: artshard-frontend
     ports:
       - "3000:80"
