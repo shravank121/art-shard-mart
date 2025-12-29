@@ -64,8 +64,8 @@ connectDB();
 
 // Initialize blockchain
 initBlockchain();
-// Start on-chain event subscriptions (logs to console)
-startEventLogging();
+// Event logging disabled to reduce Infura API calls
+// startEventLogging();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
