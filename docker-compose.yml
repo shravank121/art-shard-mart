@@ -1,13 +1,28 @@
-version: '3.8'
-
 services:
+  caddy:
+    image: caddy:alpine
+    container_name: artshard-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - artshard-network
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: artshard-backend
-    ports:
-      - "4000:4000"
+    expose:
+      - "4000"
     environment:
       - NODE_ENV=production
       - PORT=4000
@@ -18,7 +33,7 @@ services:
       - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
       - PINATA_JWT=${PINATA_JWT}
       - DEPLOY_BLOCK=${DEPLOY_BLOCK:-0}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://nftfract.duckdns.org}
     restart: unless-stopped
     networks:
       - artshard-network
@@ -34,14 +49,14 @@ services:
       context: ./Frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=${VITE_API_URL:-http://localhost:4000}
+        - VITE_API_URL=${VITE_API_URL:-https://nftfract.duckdns.org}
         - VITE_RPC_URL=${VITE_RPC_URL}
         - VITE_SEPOLIA_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_MARKETPLACE_ADDRESS}
         - VITE_SEPOLIA_FRACTIONALIZE_ADDRESS=${VITE_SEPOLIA_FRACTIONALIZE_ADDRESS}
         - VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS}
     container_name: artshard-frontend
-    ports:
-      - "3000:80"
+    expose:
+      - "80"
     depends_on:
       backend:
         condition: service_healthy
@@ -52,3 +67,7 @@ services:
 networks:
   artshard-network:
     driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,16 @@
+nftfract.duckdns.org {
+    # Frontend
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    # Backend API
+    handle /api/* {
+        reverse_proxy backend:4000
+    }
+
+    # Backend health check
+    handle /health {
+        reverse_proxy backend:4000
+    }
+}
