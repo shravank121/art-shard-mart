@@ -1,162 +1,235 @@
 # Art Shard Mart
 
-A full‑stack NFT dApp for minting, showcasing, and exploring NFTs with fractionalization concepts. Built with React + Vite + shadcn/ui (frontend), Node/Express (backend), Ethers v6, MongoDB, and IPFS (Pinata).
+A full-stack NFT dApp for minting, showcasing, and fractionalizing NFTs. Built with React + Vite (frontend), Node/Express (backend), Solidity smart contracts, and deployed on AWS EC2 with Docker.
+
+🌐 **Live Demo:** [https://nftfract.duckdns.org](https://nftfract.duckdns.org)
 
 ## Features
-- Wallet connect (MetaMask), network check (Sepolia)
-- Mint NFTs using on‑chain contract `mint(address to, string tokenURI)`
-- Upload image + JSON metadata to IPFS via Pinata (backend upload endpoint)
-- Marketplace and Dashboard views
-- NFT Details page (resolves `tokenURI` → JSON → `image`)
-- Dashboard filters NFTs by connected wallet owner
-- Secure server config via `.env` (not committed)
+- Wallet connect (MetaMask) with Sepolia testnet
+- Mint NFTs with on-chain contract
+- Fractionalize NFTs into tradeable shares
+- Marketplace for buying/selling NFTs and fractions
+- Upload images + metadata to IPFS via Pinata
+- User dashboard with owned NFTs
+- Secure JWT authentication
 
 ## Tech Stack
-- Frontend: React + Vite, TypeScript, shadcn/ui, lucide-react
-- Backend: Node.js, Express, Ethers v6, MongoDB (Mongoose)
-- Chain: Sepolia testnet
-- Storage: IPFS (Pinata)
 
-## Monorepo Layout
+| Layer | Technology |
+|-------|------------|
+| Frontend | React, Vite, TypeScript, shadcn/ui, TailwindCSS |
+| Backend | Node.js, Express, Ethers v6, MongoDB |
+| Blockchain | Solidity, Hardhat, Sepolia Testnet |
+| Storage | IPFS (Pinata) |
+| Infrastructure | AWS EC2, Docker, Caddy (SSL) |
+| CI/CD | GitHub Actions |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AWS EC2 Instance                         │
+│  ┌─────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │  Caddy  │───►│  Frontend   │    │   Backend   │         │
+│  │  (SSL)  │    │  (nginx)    │    │  (Express)  │         │
+│  └─────────┘    └─────────────┘    └──────┬──────┘         │
+│   :80/:443                                 │                │
+└────────────────────────────────────────────┼────────────────┘
+                                             │
+              ┌──────────────────────────────┼──────────────────┐
+              │                              │                  │
+              ▼                              ▼                  ▼
+      ┌─────────────┐              ┌─────────────┐    ┌─────────────┐
+      │  MongoDB    │              │   Alchemy   │    │   Sepolia   │
+      │   Atlas     │              │    (RPC)    │    │   Chain     │
+      └─────────────┘              └─────────────┘    └─────────────┘
+```
+
+## Project Structure
 ```
 art-shard-mart/
-├─ Frontend/                 # React app
-├─ backend/                  # Node/Express API
-├─ blockchain/               # Scripts and contract artifacts (ABI)
-├─ package.json              # root scripts
-└─ README.md
+├── Frontend/           # React application
+├── backend/            # Express API server
+├── blockchain/         # Smart contracts & Hardhat config
+├── .github/workflows/  # CI/CD pipeline
+├── docker-compose.yml  # Container orchestration
+├── Caddyfile          # SSL/reverse proxy config
+└── README.md
 ```
 
-## Prerequisites
-- Node.js 18+ (tested with Node 22)
-- npm 9+
-- MetaMask (Sepolia funds for gas)
-- Pinata account (JWT key)
-- MongoDB connection string
+## Smart Contracts (Sepolia)
 
-## Environment Variables
-Environment files are ignored by Git. Create local env files using the examples below.
+| Contract | Address |
+|----------|---------|
+| Marketplace | `0xe44108704b86549aA9113Ea6102b6A6b4A228b85` |
+| Fractionalize | `0x0c6210d62747D81b9d09756F9db9775070d11665` |
+| Fraction Marketplace | `0xAacC463c98fA9635eC82467fCf04e32d2e88C0Ba` |
 
-### Backend: `backend/.env`
-```
+## Local Development
+
+### Prerequisites
+- Node.js 20+
+- Docker & Docker Compose
+- MetaMask wallet with Sepolia ETH
+- MongoDB Atlas account
+- Pinata account (IPFS)
+- Alchemy account (RPC)
+
+### Environment Setup
+
+Create `.env` files:
+
+**backend/.env**
+```env
 PORT=4000
-RPC_URL=https://sepolia.infura.io/v3/<your_infura_project_id>
-PRIVATE_KEY=0x<deployer_private_key>
-CONTRACT_ADDRESS=0xYourDeployedNFTContract
-MONGODB_URI=mongodb+srv://user:pass@cluster/db
-JWT_SECRET=<strong_random_secret>
-PINATA_JWT=eyJ...<pinata_jwt>...
-# Optional: start event scan at contract creation block for faster queries
-DEPLOY_BLOCK=9588000
+MONGO_URI=mongodb+srv://...
+JWT_SECRET=your_secret
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+PRIVATE_KEY=0x...
+CONTRACT_ADDRESS=0x...
+PINATA_JWT=...
+CORS_ORIGIN=http://localhost:3000
 ```
 
-### Frontend: `Frontend/.env.local`
-```
+**Frontend/.env**
+```env
 VITE_API_URL=http://localhost:4000
+VITE_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+VITE_SEPOLIA_MARKETPLACE_ADDRESS=0x...
+VITE_SEPOLIA_FRACTIONALIZE_ADDRESS=0x...
+VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS=0x...
 ```
 
-## Install & Run (Dev)
-From repo root:
+### Run Locally
+
+**With Docker:**
 ```bash
-# install root deps for concurrently
+docker-compose up -d --build
+# Frontend: http://localhost:3000
+# Backend: http://localhost:4000
+```
+
+**Without Docker:**
+```bash
+# Install dependencies
 npm install
-
-# install backend deps
 npm --prefix backend install
-
-# install frontend deps
 npm --prefix Frontend install
 
-# run both apps
+# Run both
 npm run dev
 ```
-Then open the frontend at http://localhost:8080 (backend runs on http://localhost:4000).
 
-## Core Flows
-### 1) Upload + Mint
-- Frontend (Mint page): choose image, set title/description.
-- Frontend calls `POST /api/nft/upload` (multipart/form-data) → backend pins to Pinata:
-  - Pins image → `imageURI = ipfs://<cid>`
-  - Builds ERC‑721 metadata JSON `{ name, description, image }` and pins → `metadataURI = ipfs://<cid>`
-- Frontend then calls the contract `mint(recipient, metadataURI)` with MetaMask signer.
+## Deployment
 
-### 2) Discover NFTs for Dashboard/Marketplace
-- Backend `GET /api/nft/all`:
-  - Scans Transfer events from `DEPLOY_BLOCK` to latest to discover tokenIds
-  - Resolves `ownerOf(id)` and `tokenURI(id)` (best effort; missing data handled)
-- Frontend Dashboard:
-  - Filters NFTs to only those where `owner.toLowerCase() === account.toLowerCase()`
-  - Fetches metadata JSON from `tokenURI`
-  - Displays `metadata.image` through a public gateway
+### Infrastructure Setup (AWS EC2)
 
-## API Summary (Backend)
-Base URL: `${PORT}` default http://localhost:4000
-
-- `POST /api/auth/register` / `POST /api/auth/login`
-- `POST /api/nft/mint` (protected)
-  - body: `{ toAddress: string, metadataURI: string }`
-- `POST /api/nft/upload`
-  - form-data: `image` (file), `name`, `description`, optional `attributes`
-  - returns: `{ imageCID, imageURI, metadataCID, metadataURI }`
-- `GET /api/nft/all`
-  - returns array: `{ id, owner, uri }[]`
-- `GET /api/nft/tx/:hash` (tx receipt)
-
-## Contracts
-- ABI: `backend/src/abi/ArtShardNFT.json`
-- Required method: `mint(address to, string tokenURI)`
-- Required views: `ownerOf(uint256)`, `tokenURI(uint256)`
-
-## Frontend Notes
-- IPFS helper converts `ipfs://` → gateway URL when rendering:
-  - `Frontend/src/lib/ipfs.ts`
-- Wallet context and connect button:
-  - `Frontend/src/contexts/WalletContext.tsx`
-  - `Frontend/src/components/wallet/WalletButton.tsx`
-
-## Troubleshooting
-- Dashboard shows “No NFTs yet”
-  - Ensure `CONTRACT_ADDRESS` matches deployed contract
-  - Set `DEPLOY_BLOCK` to the contract creation block
-  - Check `/api/nft/all` in browser or via `curl.exe http://localhost:4000/api/nft/all`
-- Upload to IPFS fails
-  - Verify `PINATA_JWT` in `backend/.env`
-  - Try a small PNG/JPG; ensure `image` field name
-- Images not showing
-  - Ensure `metadata.image` is `ipfs://...`; gateway access may take a few seconds
-- Only want current user’s NFTs in Dashboard
-  - Dashboard filters by connected wallet address; connect the wallet that owns the tokens
-
-## Security
-- Do not commit secrets. Use `.env` files locally.
-- Provide `*.env.example` files for teammates (placeholders only).
-- To purge accidental secrets from history, use `git filter-repo` or BFG and force push.
-
-## Scripts
-Root `package.json`:
-```json
-{
-  "scripts": {
-    "dev": "concurrently -k -n backend,frontend -c \"bgBlue.bold\",\"bgMagenta.bold\" \"npm --prefix backend run dev\" \"npm --prefix Frontend run dev\""
-  }
-}
+1. Launch EC2 t2.micro instance (Amazon Linux 2023)
+2. Configure security group (ports 22, 80, 443)
+3. Allocate Elastic IP
+4. Install Docker:
+```bash
+sudo yum update -y && sudo yum install -y docker git
+sudo service docker start
+sudo usermod -a -G docker ec2-user
 ```
-Backend `package.json`:
-```json
-{
-  "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
-  }
+
+5. Install Docker Compose:
+```bash
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
+6. Clone and deploy:
+```bash
+git clone https://github.com/shravank121/art-shard-mart.git
+cd art-shard-mart
+# Create .env with production values
+docker-compose up -d --build
+```
+
+### SSL with Caddy
+Caddy automatically provisions SSL certificates from Let's Encrypt. Configuration in `Caddyfile`:
+```
+nftfract.duckdns.org {
+    handle /api/* {
+        reverse_proxy backend:4000
+    }
+    handle {
+        reverse_proxy frontend:80
+    }
 }
 ```
 
-## Deployment (High Level)
-- Provision a MongoDB instance (Atlas) and an RPC provider (Infura/Alchemy)
-- Host backend (Render/Heroku/Vercel Functions/any Node host)
-- Host frontend (Netlify/Vercel)
-- Set all env vars in respective platforms
-- Optional: pin content with paid Pinata plan for reliability
+### CI/CD Pipeline
+
+Automated deployment via GitHub Actions on push to `main`:
+
+1. **CI Stage** (GitHub runners):
+   - Install dependencies
+   - Build frontend
+   - Validate backend syntax
+   - Test backend startup
+
+2. **CD Stage** (EC2 via SSH):
+   - Pull latest code
+   - Rebuild Docker images
+   - Restart containers
+
+**Required GitHub Secrets:**
+| Secret | Description |
+|--------|-------------|
+| `EC2_HOST` | Elastic IP address |
+| `EC2_SSH_KEY` | Contents of .pem file |
+| `MONGO_URI` | MongoDB connection string |
+| `VITE_RPC_URL` | Alchemy RPC URL |
+| `VITE_SEPOLIA_MARKETPLACE_ADDRESS` | Contract address |
+| `VITE_SEPOLIA_FRACTIONALIZE_ADDRESS` | Contract address |
+| `VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS` | Contract address |
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/login` | Login user |
+| GET | `/api/auth/stats` | Platform statistics |
+| POST | `/api/nft/upload` | Upload to IPFS |
+| POST | `/api/nft/mint` | Mint NFT (protected) |
+| GET | `/api/nft/all` | List all NFTs |
+| GET | `/health` | Health check |
+
+## Useful Commands
+
+```bash
+# View logs
+docker logs -f artshard-backend
+docker logs -f artshard-frontend
+
+# Container stats
+docker stats
+
+# Rebuild single service
+docker-compose up -d --build backend
+
+# Clean up
+docker system prune -a -f
+
+# SSH to EC2
+ssh -i your-key.pem ec2-user@<elastic-ip>
+```
+
+## Mainnet Deployment
+
+To deploy to Ethereum mainnet:
+
+1. Get mainnet RPC URL from Alchemy
+2. Fund deployer wallet with ETH
+3. Deploy contracts: `npx hardhat run scripts/deploy.js --network mainnet`
+4. Update all `.env` files with mainnet addresses
+5. Rebuild and redeploy
+
+⚠️ **Important:** Audit smart contracts before mainnet deployment.
 
 ## License
-MIT (or your chosen license)
+MIT
