@@ -132,15 +132,24 @@ jobs:
             docker-compose down
             docker-compose up -d --build
             
-            # Wait for containers to be healthy
-            sleep 30
+            # Wait for backend to be healthy (up to 90 seconds)
+            echo "Waiting for backend to be healthy..."
+            for i in {1..18}; do
+              if curl -sf http://localhost:4000/health > /dev/null 2>&1; then
+                echo "✅ Backend is healthy!"
+                break
+              fi
+              echo "Attempt $i/18 - waiting 5s..."
+              sleep 5
+            done
             
-            # Health check
+            # Final health check
             if ! curl -sf http://localhost:4000/health > /dev/null; then
               echo "❌ Health check failed! Rolling back..."
               
               # Rollback to previous commit
-              git checkout $PREVIOUS_COMMIT
+              git checkout main
+              git reset --hard $PREVIOUS_COMMIT
               docker-compose down
               docker-compose up -d --build
               
