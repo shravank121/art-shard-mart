@@ -135,7 +135,7 @@ jobs:
             # Wait for backend to be healthy (up to 90 seconds)
             echo "Waiting for backend to be healthy..."
             for i in {1..18}; do
-              if curl -sf http://localhost:4000/health > /dev/null 2>&1; then
+              if docker exec artshard-backend curl -sf http://localhost:4000/health > /dev/null 2>&1; then
                 echo "✅ Backend is healthy!"
                 break
               fi
@@ -144,7 +144,7 @@ jobs:
             done
             
             # Final health check
-            if ! curl -sf http://localhost:4000/health > /dev/null; then
+            if ! docker exec artshard-backend curl -sf http://localhost:4000/health > /dev/null; then
               echo "❌ Health check failed! Rolling back..."
               
               # Rollback to previous commit
