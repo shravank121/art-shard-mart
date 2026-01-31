@@ -229,7 +229,7 @@ const Home = () => {
         <div className="container mx-auto px-4 relative">
           <div className="text-center max-w-4xl mx-auto">
             <Badge variant="secondary" className="mb-6 gradient-primary text-white fade-in-up pulse-glow">
-              🚀 The Future of NFT Ownership
+               The Future of NFT Ownership
             </Badge>
             
             <h1 className="text-4xl lg:text-6xl font-bold mb-6 leading-tight fade-in-up stagger-delay-1">
