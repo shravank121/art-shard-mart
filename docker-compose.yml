@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   caddy:
     image: caddy:alpine
@@ -17,9 +19,7 @@ services:
       - artshard-network
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/artshard-backend:${IMAGE_TAG}
     container_name: artshard-backend
     expose:
       - "4000"
@@ -45,15 +45,7 @@ services:
       start_period: 40s
 
   frontend:
-    build:
-      context: ./Frontend
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=${VITE_API_URL:-https://nftfract.duckdns.org}
-        - VITE_RPC_URL=${VITE_RPC_URL}
-        - VITE_SEPOLIA_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_MARKETPLACE_ADDRESS}
-        - VITE_SEPOLIA_FRACTIONALIZE_ADDRESS=${VITE_SEPOLIA_FRACTIONALIZE_ADDRESS}
-        - VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS=${VITE_SEPOLIA_FRACTION_MARKETPLACE_ADDRESS}
+    image: ${DOCKERHUB_USERNAME}/artshard-frontend:${IMAGE_TAG}
     container_name: artshard-frontend
     expose:
       - "80"

@@ -1,4 +1,10 @@
 nftfract.duckdns.org {
+    # Allow search engine crawlers
+    @bots {
+        header User-Agent *Googlebot*
+        header User-Agent *bingbot*
+    }
+    
     # Frontend
     handle {
         reverse_proxy frontend:80
