@@ -112,6 +112,8 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+
             IMAGE_TAG=${{ github.sha }}
             DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
 
@@ -123,9 +125,8 @@ jobs:
               --password-stdin
 
             echo "Detecting previous image..."
-            PREVIOUS_IMAGE=$(docker inspect artshard-backend \
-              --format='{{.Config.Image}}' 2>/dev/null)
 
+            PREVIOUS_IMAGE=$(docker inspect artshard-backend 2>/dev/null | grep '"Image"' | head -1 | awk -F '"' '{print $4}')
             PREVIOUS_TAG=$(echo $PREVIOUS_IMAGE | cut -d':' -f2 | sed 's/backend-//')
 
             echo "Pulling new images..."
@@ -141,7 +142,7 @@ jobs:
             echo "Waiting for backend health..."
 
             for i in {1..18}; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' artshard-backend 2>/dev/null)
+              STATUS=$(docker inspect artshard-backend 2>/dev/null | grep '"Health"' -A 5 | grep '"Status"' | head -1 | awk -F '"' '{print $4}')
               if [ "$STATUS" = "healthy" ]; then
                 echo "Deployment successful"
                 docker system prune -f
